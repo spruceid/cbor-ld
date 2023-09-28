@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub const DID_KEY: &str = "did:key:";
 pub const DID_V1: &str = "did:v1:nym";
 
-pub fn encode_context(context: String) -> Result<Vec<u8>, TruageCborLdError> {
+fn encode_context(context: String) -> Result<Vec<u8>, TruageCborLdError> {
     let context_map = get_contextmap();
     let value = context_map.get(&context);
     match value {
@@ -19,7 +19,7 @@ pub fn encode_context(context: String) -> Result<Vec<u8>, TruageCborLdError> {
     }
 }
 
-pub fn encode_urnuuid(urn_uuid: String) -> Result<Vec<u8>, TruageCborLdError> {
+fn encode_urnuuid(urn_uuid: String) -> Result<Vec<u8>, TruageCborLdError> {
     let Some(bare_uuid) = urn_uuid.strip_prefix("urn:uuid:") else {
         return Err(TruageCborLdError::UnexpectedFormat(format!("invalid urn:uuid formatting: {:?}", urn_uuid)))
     };
@@ -46,7 +46,7 @@ pub fn encode_vocab_term(
     Ok(vec![term_id.to_owned()])
 }
 
-pub fn encode_xsd_datetime(value: String) -> Result<Vec<u8>, TruageCborLdError> {
+fn encode_xsd_datetime(value: String) -> Result<Vec<u8>, TruageCborLdError> {
     let iso_date = DateTime::parse_from_rfc3339(value.as_str())?;
     let system_time: SystemTime = iso_date.into();
     let secs_since_epoch = system_time.duration_since(UNIX_EPOCH)?.as_secs();
@@ -54,7 +54,7 @@ pub fn encode_xsd_datetime(value: String) -> Result<Vec<u8>, TruageCborLdError> 
     Ok(xsd_result)
 }
 
-pub fn encode_multi_base(value: String) -> Result<Vec<u8>, TruageCborLdError> {
+fn encode_multi_base(value: String) -> Result<Vec<u8>, TruageCborLdError> {
     let value_string = value.as_str();
     let mut multi_base_bytes: Vec<u8> = vec![];
     if let Some(strip) = value_string.strip_prefix('z') {
@@ -79,7 +79,7 @@ pub fn encode_multi_base(value: String) -> Result<Vec<u8>, TruageCborLdError> {
     Ok(multi_base_bytes)
 }
 
-pub fn encode_base_58_did_url(value: String) -> Result<Vec<u8>, TruageCborLdError> {
+fn encode_base_58_did_url(value: String) -> Result<Vec<u8>, TruageCborLdError> {
     let (prefix, suffix) = if value.starts_with(DID_V1) {
         value.split_at(DID_V1.len())
     } else {

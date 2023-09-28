@@ -64,6 +64,8 @@ impl From<chrono::ParseError> for TruageCborLdError {
 // this function recursively collects cbor-ld encoded objects into an array of transform_maps
 // to obtain the compressed cbor-ld, the encoder must know something about the document structure to reconstruct the propper mapping tags
 // this algorithm is incomplete, but covers the scope of TruAge credentials.
+// To make a generic jsonld-cborld converter:
+// TODO: extend truage_jsonld_to_cborld to cover all types
 // TODO: attach coordinates to each transform_map to always allow for reconstruction of the cbor-ld document
 pub fn truage_jsonld_to_cborld(
     document: Value,
@@ -144,8 +146,10 @@ pub fn truage_jsonld_to_cborld(
                 }
             }
             Value::Number(number) => {
-                let val = vec![number.as_u64().unwrap() as u8];
-                transform_map.insert(*key_encoded, val);
+                let Some(num) = number.as_u64() else {
+                    return Err(TruageCborLdError::UnexpectedFormat("Integer value can't be parsed as a number".to_string()))
+                };
+                transform_map.insert(*key_encoded, vec![num as u8]);
             }
             _ => {
                 return Err(TruageCborLdError::UnexpectedFormat(
@@ -243,7 +247,7 @@ mod tests {
               "VerifiableCredential",
               "OverAgeTokenCredential"
             ],
-            "issuer": "did:v1:nym:z6MkkUbCFazdoducKf8SUye7cAxuicMdDBhXKWuTEuGA3jQF",
+            "issuer": "did:key:z6MkkUbCFazdoducKf8SUye7cAxuicMdDBhXKWuTEuGA3jQF",
             "issuanceDate": "2021-03-24T20:03:03Z",
             "expirationDate": "2021-06-24T20:03:03Z",
             "credentialSubject": {
@@ -253,7 +257,7 @@ mod tests {
             "proof": {
               "type": "Ed25519Signature2020",
               "created": "2021-08-07T21:36:26Z",
-              "verificationMethod": "did:v1:nym:z6MkkUbCFazdoducKf8SUye7cAxuicMdDBhXKWuTEuGA3jQF#z6MkkUbCFazdoducKf8SUye7cAxuicMdDBhXKWuTEuGA3jQF",
+              "verificationMethod": "did:key:z6MkkUbCFazdoducKf8SUye7cAxuicMdDBhXKWuTEuGA3jQF#z6MkkUbCFazdoducKf8SUye7cAxuicMdDBhXKWuTEuGA3jQF",
               "proofPurpose": "assertionMethod",
               "proofValue": "z4mAs9uHU16jR4xwPcbhHyRUc6BbaiJQE5MJwn3PCWkRXsriK9AMrQQMbjzG9XXFPNgngmQXHKUz23WRSu9jSxPCF"
             }

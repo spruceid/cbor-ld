@@ -3,6 +3,10 @@ use truage::TruageCborLdError;
 pub mod encoders;
 pub mod truage;
 
+//Note: These context and vocab maps are focused on TruAge and subject to change.
+//Cbor-ld is not an established standard, and Digital Bazaar can make unilateral changes to encoding vocabulary.
+//Before using Cbor-ld for anything, make sure that you can't use base64url encoding instead.
+
 pub fn get_contextmap() -> HashMap<String, u8> {
     HashMap::<String, u8>::from([
         (String::from("https://www.w3.org/ns/activitystreams"), 0x10),
