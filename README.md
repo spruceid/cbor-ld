@@ -1,1 +1,1 @@
-Library for compresing a TruAge json-ld document into cbor-ld
+Library for compressing a TruAge json-ld document into cbor-ld
