@@ -182,7 +182,7 @@ pub fn compress(map: BTreeMap<u8, Vec<u8>>) -> Result<Vec<u8>, TruageCborLdError
     Ok(compressed_array)
 }
 
-pub async fn encode_truage(document: Value) -> Result<Vec<u8>, TruageCborLdError> {
+pub fn encode_truage(document: Value) -> Result<Vec<u8>, TruageCborLdError> {
     let key_words_map = get_keywordsmap();
     let transform_maps = vec![];
     let mut result = truage_jsonld_to_cborld(document, transform_maps)?;
@@ -263,8 +263,7 @@ mod tests {
             }
           }
         });
-        let cborld_encoded = encode_truage(doc).await.unwrap();
-        println!("cborld_encoded: {:?}", cborld_encoded);
+        let cborld_encoded = encode_truage(doc).unwrap();
         assert_eq!(cborld_encoded, cmp_hex);
     }
 
@@ -303,7 +302,7 @@ mod tests {
             }
         });
 
-        let cborld_encoded = encode_truage(doc).await;
+        let cborld_encoded = encode_truage(doc);
         match cborld_encoded {
             Ok(_v) => {
                 panic!()
@@ -353,7 +352,7 @@ mod tests {
             }
         });
 
-        let cborld_encoded = encode_truage(doc).await.unwrap();
+        let cborld_encoded = encode_truage(doc).unwrap();
 
         assert_eq!(cborld_encoded, cmp_hex);
     }
