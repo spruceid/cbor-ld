@@ -8,18 +8,16 @@ pub mod codecs;
 pub mod contexts;
 mod decode;
 mod encode;
-mod id_alloc;
-pub mod id_map;
 pub mod keywords;
 pub mod utils;
 pub use decode::*;
 pub use encode::*;
 pub mod diagnostic;
+mod id;
 pub mod transform;
 
 pub use codecs::Codecs;
-pub use id_alloc::IdAllocator;
-pub use id_map::IdMap;
+pub use id::*;
 
 #[derive(Debug, Default)]
 pub enum CompressionMode {

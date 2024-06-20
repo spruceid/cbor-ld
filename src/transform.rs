@@ -120,7 +120,7 @@ impl TransformedObject for JsonObject {
     }
 
     fn entries(&self) -> impl Iterator<Item = (&Self::Key, &Self::Value)> {
-        self.entries().into_iter().map(|e| (&e.key, &e.value))
+        self.entries().iter().map(|e| (&e.key, &e.value))
     }
 }
 

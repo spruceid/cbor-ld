@@ -23,15 +23,15 @@ impl TypeCodec for XsdDateTimeCodec {
 
         if exact_date_time == date_time.latest() {
             let timestamp = exact_date_time.timestamp_micros();
-            let seconds = timestamp / 1000_000;
+            let seconds = timestamp / 1_000_000;
             let milliseconds = (timestamp / 1000) % 1000;
 
-            if seconds * 1000_000 == timestamp {
+            if seconds * 1_000_000 == timestamp {
                 // second precision.
                 return Ok(CborValue::Integer(seconds.into()));
             }
 
-            if seconds * 1000_000 + milliseconds * 1000 == timestamp {
+            if seconds * 1_000_000 + milliseconds * 1000 == timestamp {
                 // millisecond precision.
                 return Ok(CborValue::Array(vec![
                     CborValue::Integer(seconds.into()),
@@ -87,7 +87,10 @@ impl TypeCodec for XsdDateTimeCodec {
                     .try_into()
                     .map_err(|_| DecodeError::Codec("xsd-date-time", "overflow".to_string()))?;
 
-                match Utc.timestamp_opt(seconds, milliseconds * 1000_000).single() {
+                match Utc
+                    .timestamp_opt(seconds, milliseconds * 1_000_000)
+                    .single()
+                {
                     Some(date_time) => Ok(xsd_types::DateTime::from(date_time).into_string()),
                     None => {
                         todo!()

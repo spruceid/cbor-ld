@@ -32,7 +32,7 @@ impl DisplayDiagnostic for CborValue {
             Self::Bool(true) => write!(f, "true"),
             Self::Bool(false) => write!(f, "false"),
             Self::Integer(i) => {
-                let i: i128 = i.clone().into();
+                let i: i128 = (*i).into();
                 write!(f, "{i}")
             }
             Self::Float(v) => {

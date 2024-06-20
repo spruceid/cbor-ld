@@ -46,8 +46,8 @@ impl TypeCodec for CryptosuiteCodec {
 
     fn decode(
         &self,
-        state: &TransformerState,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        _state: &TransformerState,
+        _active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
         value: &CborValue,
     ) -> Result<String, DecodeError> {
         match value {

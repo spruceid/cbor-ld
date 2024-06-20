@@ -7,7 +7,7 @@ pub struct Base58DidMethodCodec;
 
 impl IriCodec for Base58DidMethodCodec {
     fn encode(&self, suffix: &str) -> Result<Vec<CborValue>, EncodeError> {
-        match suffix.split_once("#") {
+        match suffix.split_once('#') {
             Some((id, fragment)) => {
                 let (_, bytes) = multibase::decode(id)
                     .map_err(|e| EncodeError::Codec("base58-did-method", e.to_string()))?;
