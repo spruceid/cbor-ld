@@ -11,19 +11,27 @@ pub use error::*;
 use iref::{IriBuf, IriRef, IriRefBuf};
 use rdf_types::BlankIdBuf;
 
+/// Decoding options.
 #[derive(Debug)]
 pub struct DecodeOptions {
+    /// Map associating JSON-LD context URLs to CBOR-LD (integer) identifiers.
     pub context_map: IdMap,
+
+    /// Datatype codecs.
+    pub codecs: Codecs,
 }
 
 impl Default for DecodeOptions {
     fn default() -> Self {
         Self {
             context_map: IdMap::new_derived(Some(&REGISTERED_CONTEXTS)),
+            codecs: Default::default(),
         }
     }
 }
 
+/// Decodes a CBOR-LD document using the given JSON-LD context loader and the
+/// default options.
 pub async fn decode<L>(cbor_ld_document: &CborValue, loader: L) -> Result<JsonValue, DecodeError>
 where
     L: json_ld::Loader,
@@ -32,6 +40,8 @@ where
     decode_with(cbor_ld_document, loader, Default::default()).await
 }
 
+/// Decodes a CBOR-LD document using the given JSON-LD context loader and the
+/// given options.
 pub async fn decode_with<L>(
     cbor_ld_document: &CborValue,
     loader: L,
@@ -47,7 +57,7 @@ where
                 todo!()
             }
             CompressionMode::Version1 => {
-                let mut decoder = Decoder::new(loader, options.context_map, Default::default());
+                let mut decoder = Decoder::new(loader, options.context_map, options.codecs);
                 decoder.decode(value).await
             }
         },
@@ -55,6 +65,8 @@ where
     }
 }
 
+/// Decodes a CBOR-LD document bytes using the given JSON-LD context loader and
+/// the default options.
 pub async fn decode_from_bytes<L>(bytes: &[u8], loader: L) -> Result<JsonValue, DecodeError>
 where
     L: json_ld::Loader,
@@ -63,6 +75,8 @@ where
     decode_from_bytes_with(bytes, loader, Default::default()).await
 }
 
+/// Decodes a CBOR-LD document bytes using the given JSON-LD context loader and
+/// the given options.
 pub async fn decode_from_bytes_with<L>(
     bytes: &[u8],
     loader: L,
@@ -76,6 +90,7 @@ where
     decode_with(&cbor_ld_document, loader, options).await
 }
 
+/// CBOR-LD decoder.
 pub struct Decoder<L> {
     loader: L,
     state: TransformerState,

@@ -9,10 +9,17 @@ use rdf_types::BlankIdBuf;
 mod error;
 pub use error::*;
 
+/// Encoding options.
 #[derive(Debug)]
 pub struct EncodeOptions {
+    /// Compression mode.
     pub compression_mode: CompressionMode,
+
+    /// Map associating JSON-LD context URLs to CBOR-LD (integer) identifiers.
     pub context_map: IdMap,
+
+    /// Datatype codecs.
+    pub codecs: Codecs,
 }
 
 impl Default for EncodeOptions {
@@ -20,10 +27,13 @@ impl Default for EncodeOptions {
         Self {
             compression_mode: CompressionMode::Version1,
             context_map: IdMap::new_derived(Some(&REGISTERED_CONTEXTS)),
+            codecs: Default::default(),
         }
     }
 }
 
+/// Encodes a JSON-LD document into CBOR-LD using the given JSON-LD context
+/// loader and the default options.
 pub async fn encode<L>(
     json_ld_document: &json_ld::syntax::Value,
     loader: L,
@@ -35,6 +45,8 @@ where
     encode_with(json_ld_document, loader, Default::default()).await
 }
 
+/// Encodes a JSON-LD document into CBOR-LD using the given JSON-LD context
+/// loader and the given options.
 pub async fn encode_with<L>(
     json_ld_document: &json_ld::syntax::Value,
     loader: L,
@@ -49,7 +61,7 @@ where
             todo!()
         }
         CompressionMode::Version1 => {
-            let mut compressor = Encoder::new(loader, options.context_map, Default::default());
+            let mut compressor = Encoder::new(loader, options.context_map, options.codecs);
 
             compressor.encode(json_ld_document).await
         }
@@ -61,6 +73,8 @@ where
     ))
 }
 
+/// Encodes a JSON-LD document into CBOR-LD bytes using the given JSON-LD
+/// context loader and the default options.
 pub async fn encode_to_bytes<L>(
     json_ld_document: &json_ld::syntax::Value,
     loader: L,
@@ -72,6 +86,8 @@ where
     encode_to_bytes_with(json_ld_document, loader, Default::default()).await
 }
 
+/// Encodes a JSON-LD document into CBOR-LD bytes using the given JSON-LD
+/// context loader and the given options.
 pub async fn encode_to_bytes_with<L>(
     json_ld_document: &json_ld::syntax::Value,
     loader: L,

@@ -1,4 +1,5 @@
 use crate::{CborValue, DecodeError, EncodeError};
+use core::fmt;
 use iref::{Iri, IriBuf};
 use std::collections::HashMap;
 
@@ -95,6 +96,12 @@ impl IriCodecs {
 
         IriBuf::new(format!("{prefix}:{suffix}"))
             .map_err(|_| DecodeError::Codec("iri", "invalid IRI".to_owned()))
+    }
+}
+
+impl fmt::Debug for IriCodecs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("IriCodecs").finish()
     }
 }
 

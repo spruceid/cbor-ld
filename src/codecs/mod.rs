@@ -1,3 +1,4 @@
+use core::fmt;
 use std::collections::HashMap;
 
 use iref::{Iri, IriBuf};
@@ -63,6 +64,12 @@ impl TypeCodecs {
     }
 }
 
+impl fmt::Debug for TypeCodecs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TypeCodecs").finish()
+    }
+}
+
 pub const CRYPTOSUITE_STRING: &Iri = iri!("https://w3id.org/security#cryptosuiteString");
 pub const MULTIBASE: &Iri = iri!("https://w3id.org/security#multibase");
 
@@ -90,7 +97,7 @@ impl Default for TypeCodecs {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Codecs {
     pub iri: IriCodecs,
     pub type_: TypeCodecs,
