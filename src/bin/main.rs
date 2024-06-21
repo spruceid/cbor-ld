@@ -45,19 +45,19 @@ struct Configuration {
     #[serde(default, deserialize_with = "deserialize_context_map")]
     contexts: Vec<ContextDefinition>,
 
-    /// Local-only context loader.
+    /// Offline context loader.
     ///
     /// Enabling this option will disable remote context fetching.
     #[clap(short, long, global = true)]
     #[serde(default)]
-    local: bool,
+    offline: bool,
 }
 
 impl Configuration {
     fn extend(&mut self, other: Self) {
         self.mount.extend(other.mount);
         self.contexts.extend(other.contexts);
-        self.local |= other.local;
+        self.offline |= other.offline;
     }
 }
 
@@ -186,10 +186,10 @@ async fn run(args: Args) -> Result<(), Error> {
         fs_loader.mount(m.iri, m.path);
     }
 
-    let loader = if config.local {
-        Loader::Local(fs_loader)
+    let loader = if config.offline {
+        Loader::Offline(fs_loader)
     } else {
-        Loader::Remote(ChainLoader::new(fs_loader, ReqwestLoader::new()))
+        Loader::Online(ChainLoader::new(fs_loader, ReqwestLoader::new()))
     };
 
     let mut context_map = IdMap::new_derived(Some(&REGISTERED_CONTEXTS));
@@ -263,8 +263,8 @@ enum Error {
 }
 
 enum Loader {
-    Local(FsLoader<IriBuf>),
-    Remote(ChainLoader<FsLoader<IriBuf>, ReqwestLoader>),
+    Offline(FsLoader<IriBuf>),
+    Online(ChainLoader<FsLoader<IriBuf>, ReqwestLoader>),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -299,11 +299,11 @@ impl json_ld::Loader<IriBuf> for Loader {
         V: json_ld::rdf_types::vocabulary::IriVocabularyMut<Iri = IriBuf>,
     {
         match self {
-            Self::Local(l) => l
+            Self::Offline(l) => l
                 .load_with(vocabulary, url)
                 .await
                 .map_err(LoaderError::Local),
-            Self::Remote(l) => l
+            Self::Online(l) => l
                 .load_with(vocabulary, url)
                 .await
                 .map_err(LoaderError::Remote),

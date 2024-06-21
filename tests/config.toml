@@ -1,6 +1,6 @@
 # Set to `true` so JSON-LD context will only be
 # fetched from the file system.
-local = true
+offline = true
 
 [mount]
 "https://www.w3.org/2018/credentials" = "tests/contexts/credentials"
