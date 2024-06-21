@@ -1,12 +1,10 @@
-use std::borrow::Cow;
-
 use iref::{Iri, IriBuf, IriRef, IriRefBuf};
 use json_ld::{
     context::TermDefinitionRef,
     syntax::{is_keyword, Keyword},
     Process,
 };
-use rdf_types::BlankIdBuf;
+use std::borrow::Cow;
 
 use crate::{
     keywords::{FIRST_CUSTOM_TERM_ID, KEYWORDS_MAP},
@@ -175,7 +173,7 @@ pub trait Transformer {
     type OutputKey: PartialOrd;
 
     type Loader: json_ld::Loader;
-    type Error: From<json_ld::context_processing::Error<<Self::Loader as json_ld::Loader>::Error>>
+    type Error: From<json_ld::context_processing::Error>
         + From<ExpectedObject>
         + From<DuplicateKey<Self::InputKey>>
         + From<MissingKeyTerm<<Self::InputKey as ToOwned>::Owned>>
@@ -183,11 +181,7 @@ pub trait Transformer {
 
     fn context_iri_ref(&self, value: &Self::Input) -> Result<IriRefBuf, Self::Error>;
 
-    fn context_id(
-        &self,
-        value: &Self::Input,
-        iri_ref: &IriRef,
-    ) -> Result<Self::Output, Self::Error>;
+    fn context_id(&self, value: &Self::Input, iri_ref: &IriRef) -> Self::Output;
 
     fn term_key(&self, term: &str, plural: bool) -> Result<Self::OutputKey, Self::Error>;
 
@@ -217,7 +211,7 @@ pub trait Transformer {
     /// Use the vocab codec to transform an vocab value.
     fn transform_vocab(
         &self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
     ) -> Result<Self::Output, Self::Error>;
 
@@ -226,10 +220,10 @@ pub trait Transformer {
     #[allow(async_fn_in_trait)]
     async fn process_global_context<'c>(
         &mut self,
-        active_context: &'c json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &'c json_ld::Context,
         context_value: &Self::Input,
         propagate: bool,
-    ) -> Result<(Self::Output, Cow<'c, json_ld::Context<IriBuf, BlankIdBuf>>), Self::Error> {
+    ) -> Result<(Self::Output, Cow<'c, json_ld::Context>), Self::Error> {
         match context_value.as_array() {
             Some(entries) => {
                 let mut active_context = Cow::Borrowed(active_context);
@@ -258,10 +252,10 @@ pub trait Transformer {
     #[allow(async_fn_in_trait)]
     async fn process_global_context_entry(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         context_value: &Self::Input,
         propagate: bool,
-    ) -> Result<(Self::Output, json_ld::Context<IriBuf, BlankIdBuf>), Self::Error> {
+    ) -> Result<(Self::Output, json_ld::Context), Self::Error> {
         // let context_iri_ref: IriRefBuf = context_value
         //     .as_str()
         //     .ok_or(EncodeError::InvalidContextEntry)?
@@ -269,7 +263,7 @@ pub trait Transformer {
         //     .map_err(|_| EncodeError::InvalidContextEntry)?;
 
         let context_iri_ref = self.context_iri_ref(context_value)?;
-        let id = self.context_id(context_value, &context_iri_ref)?;
+        let id = self.context_id(context_value, &context_iri_ref);
         let context = json_ld::syntax::Context::iri_ref(context_iri_ref);
         let new_active_context = self
             .process_context(active_context, &context, propagate)
@@ -281,10 +275,10 @@ pub trait Transformer {
     #[allow(async_fn_in_trait)]
     async fn process_context(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         context: &json_ld::syntax::Context,
         propagate: bool,
-    ) -> Result<json_ld::Context<IriBuf, BlankIdBuf>, Self::Error> {
+    ) -> Result<json_ld::Context, Self::Error> {
         let (state, loader) = self.state_and_loader_mut();
 
         let result = context
@@ -321,7 +315,7 @@ pub trait Transformer {
     #[allow(async_fn_in_trait)]
     async fn transform(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
     ) -> Result<Self::Output, Self::Error> {
         match value.as_object() {
@@ -336,7 +330,7 @@ pub trait Transformer {
     #[allow(async_fn_in_trait)]
     async fn transform_node(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         object: &Self::InputObject,
     ) -> Result<Self::OutputObject, Self::Error> {
         // // Otherwise element is a map.
@@ -486,7 +480,7 @@ pub trait Transformer {
 
     fn transform_typed_value(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
         type_: Option<&json_ld::Type<IriBuf>>,
     ) -> Result<Option<Self::Output>, Self::Error>;
@@ -494,16 +488,12 @@ pub trait Transformer {
     #[allow(async_fn_in_trait)]
     async fn transform_object(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
     ) -> Result<Self::Output, Self::Error>;
 }
 
-fn is_alias(
-    active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
-    key: &str,
-    keyword: Keyword,
-) -> bool {
+fn is_alias(active_context: &json_ld::Context, key: &str, keyword: Keyword) -> bool {
     key == keyword.into_str()
         || active_context.get_normal(key).is_some_and(|d| {
             d.value
@@ -512,11 +502,7 @@ fn is_alias(
         })
 }
 
-fn is_alias_with_def(
-    key: &str,
-    def: Option<TermDefinitionRef<IriBuf, BlankIdBuf>>,
-    keyword: Keyword,
-) -> bool {
+fn is_alias_with_def(key: &str, def: Option<TermDefinitionRef>, keyword: Keyword) -> bool {
     key == keyword.into_str()
         || def.is_some_and(|d| {
             d.value()
@@ -541,7 +527,7 @@ impl TransformerState {
 
     pub fn encode_vocab_term(
         &self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &str,
     ) -> Result<CborValue, EncodeError> {
         match self.allocator.encode_term(value, false) {
@@ -585,7 +571,7 @@ impl TransformerState {
 
     pub fn decode_vocab_term(
         &self,
-        _active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        _active_context: &json_ld::Context,
         value: &CborValue,
     ) -> Result<String, DecodeError> {
         match value {

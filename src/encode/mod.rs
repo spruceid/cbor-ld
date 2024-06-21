@@ -3,9 +3,7 @@ use crate::{
     transform::{Transformer, TransformerState},
     CborObject, CborValue, Codecs, CompressionMode, IdMap, JsonObject, JsonValue,
 };
-use core::fmt;
 use iref::{Iri, IriBuf, IriRef, IriRefBuf};
-use rdf_types::BlankIdBuf;
 mod error;
 pub use error::*;
 
@@ -40,7 +38,6 @@ pub async fn encode<L>(
 ) -> Result<CborValue, EncodeError>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     encode_with(json_ld_document, loader, Default::default()).await
 }
@@ -54,7 +51,6 @@ pub async fn encode_with<L>(
 ) -> Result<CborValue, EncodeError>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     let cbor_value = match options.compression_mode {
         CompressionMode::Uncompressed => {
@@ -81,7 +77,6 @@ pub async fn encode_to_bytes<L>(
 ) -> Result<Vec<u8>, EncodeError>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     encode_to_bytes_with(json_ld_document, loader, Default::default()).await
 }
@@ -95,7 +90,6 @@ pub async fn encode_to_bytes_with<L>(
 ) -> Result<Vec<u8>, EncodeError>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     encode_with(json_ld_document, loader, options)
         .await
@@ -125,7 +119,6 @@ impl<L> Encoder<L> {
 impl<L> Encoder<L>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     pub async fn encode(&mut self, json_ld_document: &JsonValue) -> Result<CborValue, EncodeError> {
         let active_context = json_ld::Context::new(None);
@@ -134,7 +127,7 @@ where
 
     fn encode_vocab_term(
         &self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &JsonValue,
     ) -> Result<CborValue, EncodeError> {
         let value = value.as_str().ok_or(EncodeError::InvalidVocabTermKind)?;
@@ -145,7 +138,6 @@ where
 impl<L> Transformer for Encoder<L>
 where
     L: json_ld::Loader,
-    L::Error: std::fmt::Display,
 {
     type Input = JsonValue;
     type Output = CborValue;
@@ -167,18 +159,11 @@ where
             .map_err(|_| EncodeError::InvalidContextEntry)
     }
 
-    fn context_id(
-        &self,
-        _value: &Self::Input,
-        iri_ref: &IriRef,
-    ) -> Result<Self::Output, Self::Error> {
-        let context_id = self
-            .state
-            .context_map
-            .get_id(iri_ref)
-            .ok_or_else(|| EncodeError::MissingContextId(iri_ref.to_owned()))?;
-
-        Ok(CborValue::Integer(context_id.into()))
+    fn context_id(&self, _value: &Self::Input, iri_ref: &IriRef) -> Self::Output {
+        match self.state.context_map.get_id(iri_ref) {
+            Some(id) => CborValue::Integer(id.into()),
+            None => CborValue::Text(iri_ref.as_str().to_owned()),
+        }
     }
 
     fn term_key(&self, term: &str, plural: bool) -> Result<Self::OutputKey, Self::Error> {
@@ -215,7 +200,7 @@ where
 
     fn transform_vocab(
         &self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
     ) -> Result<Self::Output, Self::Error> {
         self.encode_vocab_term(active_context, value)
@@ -227,7 +212,7 @@ where
 
     fn transform_typed_value(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
         type_: Option<&json_ld::Type<IriBuf>>,
     ) -> Result<Option<Self::Output>, Self::Error> {
@@ -245,7 +230,7 @@ where
 
     async fn transform_object(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
     ) -> Result<Self::Output, Self::Error> {
         match value {

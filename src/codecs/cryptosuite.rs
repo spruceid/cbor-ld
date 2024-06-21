@@ -1,9 +1,6 @@
-use iref::IriBuf;
-use lazy_static::lazy_static;
-use rdf_types::BlankIdBuf;
-
 use super::TypeCodec;
 use crate::{transform::TransformerState, CborValue, DecodeError, EncodeError, IdMap};
+use lazy_static::lazy_static;
 
 lazy_static! {
     pub static ref REGISTERED_CRYPTOSUITES: IdMap = [
@@ -35,7 +32,7 @@ impl TypeCodec for CryptosuiteCodec {
     fn encode(
         &self,
         _state: &TransformerState,
-        _active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        _active_context: &json_ld::Context,
         value: &str,
     ) -> Result<CborValue, EncodeError> {
         match self.cryptosuites.get_id(value) {
@@ -47,7 +44,7 @@ impl TypeCodec for CryptosuiteCodec {
     fn decode(
         &self,
         _state: &TransformerState,
-        _active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        _active_context: &json_ld::Context,
         value: &CborValue,
     ) -> Result<String, DecodeError> {
         match value {

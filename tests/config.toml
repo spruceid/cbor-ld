@@ -1,0 +1,12 @@
+# Set to `true` so JSON-LD context will only be
+# fetched from the file system.
+local = true
+
+[mount]
+"https://www.w3.org/2018/credentials" = "tests/contexts/credentials"
+"https://www.w3.org/ns/credentials" = "tests/contexts/credentials"
+"https://www.w3.org/ns/activitystreams" = "tests/contexts/activitystreams"
+"https://w3id.org/age" = "tests/contexts/age"
+"https://w3id.org/security" = "tests/contexts/security"
+"https://w3id.org/cit" = "tests/contexts/cit"
+"https://w3id.org/citizenship" = "tests/contexts/citizenship"

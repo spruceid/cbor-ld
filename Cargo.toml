@@ -10,7 +10,7 @@ required-features = ["bin"]
 
 [features]
 default = ["bin"]
-bin = ["clap", "env_logger", "json-ld/reqwest"]
+bin = ["clap", "env_logger", "json-ld/reqwest", "iref/serde", "hex"]
 
 [dependencies]
 log = "0.4.21"
@@ -20,8 +20,7 @@ static-iref = "3.0.0"
 lazy_static = "1.4"
 serde = { version = "1.0", features = ["derive"] }
 ciborium = "0.2.2"
-json-ld = "0.17.2"
-rdf-types = "0.22.4"
+json-ld = "0.18"
 xsd-types = "0.9.4"
 thiserror = "1.0"
 multibase = "0.9.1"
@@ -31,9 +30,14 @@ chrono = "0.4.38"
 # bin dependencies.
 env_logger = { version = "0.11.3", optional = true }
 clap = { version = "4.5.7", features = ["derive"], optional = true }
-hex = "0.4.3"
+hex = { version = "0.4.3", optional = true }
+toml = "0.8.14"
 
 [dev-dependencies]
-json-ld = { version = "0.17.2", features = ["reqwest"] }
+json-ld = { version = "0.18", features = ["reqwest"] }
 yansi = "1.0.1"
 json-syntax = "0.12.4"
+hex = "0.4.3"
+
+[patch.crates-io]
+json-ld = { path = "/home/work/Documents/Community/rdf/json-ld" }

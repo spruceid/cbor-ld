@@ -1,9 +1,6 @@
-use iref::IriBuf;
-use multibase::Base;
-use rdf_types::BlankIdBuf;
-
 use super::TypeCodec;
 use crate::{transform::TransformerState, CborValue, DecodeError, EncodeError};
+use multibase::Base;
 
 pub struct MultibaseCodec;
 
@@ -11,7 +8,7 @@ impl TypeCodec for MultibaseCodec {
     fn encode(
         &self,
         _state: &TransformerState,
-        _active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        _active_context: &json_ld::Context,
         value: &str,
     ) -> Result<CborValue, EncodeError> {
         let (base, bytes) =
@@ -26,7 +23,7 @@ impl TypeCodec for MultibaseCodec {
     fn decode(
         &self,
         _state: &TransformerState,
-        _active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        _active_context: &json_ld::Context,
         value: &CborValue,
     ) -> Result<String, DecodeError> {
         let bytes = value

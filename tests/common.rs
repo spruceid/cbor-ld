@@ -10,6 +10,10 @@ pub fn create_context_loader() -> FsLoader<IriBuf> {
     let mut loader = FsLoader::new();
 
     loader.mount(
+        iri!("https://www.w3.org/ns/activitystreams").to_owned(),
+        "tests/contexts/activitystreams",
+    );
+    loader.mount(
         iri!("https://w3id.org/security").to_owned(),
         "tests/contexts/security",
     );
@@ -24,6 +28,10 @@ pub fn create_context_loader() -> FsLoader<IriBuf> {
     loader.mount(
         iri!("https://w3id.org/cit").to_owned(),
         "tests/contexts/cit",
+    );
+    loader.mount(
+        iri!("https://w3id.org/citizenship").to_owned(),
+        "tests/contexts/citizenship",
     );
 
     loader

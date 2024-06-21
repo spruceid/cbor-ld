@@ -1,9 +1,7 @@
 use core::fmt;
-use std::collections::HashMap;
-
 use iref::{Iri, IriBuf};
-use rdf_types::BlankIdBuf;
 use static_iref::iri;
+use std::collections::HashMap;
 
 use crate::{transform::TransformerState, CborValue, DecodeError, EncodeError};
 
@@ -32,14 +30,14 @@ pub trait TypeCodec {
     fn encode(
         &self,
         state: &TransformerState,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &str,
     ) -> Result<CborValue, EncodeError>;
 
     fn decode(
         &self,
         state: &TransformerState,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &CborValue,
     ) -> Result<String, DecodeError>;
 }

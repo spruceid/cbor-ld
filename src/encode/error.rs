@@ -1,8 +1,5 @@
-use core::fmt;
-
-use iref::IriRefBuf;
-
 use crate::transform::{DuplicateKey, ExpectedObject, MissingKeyTerm, UndefinedTerm};
+use iref::IriRefBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EncodeError {
@@ -19,7 +16,7 @@ pub enum EncodeError {
     InvalidTermDefinition,
 
     #[error("JSON-LD context processing failed: {0}")]
-    ContextProcessing(String),
+    ContextProcessing(#[from] json_ld::context_processing::Error),
 
     #[error("duplicate JSON entry `{0}`")]
     DuplicateEntry(String),
@@ -47,12 +44,6 @@ pub enum EncodeError {
 
     #[error("`{0}` codec error: {1}")]
     Codec(&'static str, String),
-}
-
-impl<E: fmt::Display> From<json_ld::context_processing::Error<E>> for EncodeError {
-    fn from(value: json_ld::context_processing::Error<E>) -> Self {
-        Self::ContextProcessing(value.to_string())
-    }
 }
 
 impl From<DuplicateKey<json_ld::syntax::object::Key>> for EncodeError {

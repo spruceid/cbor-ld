@@ -1,11 +1,7 @@
-use std::str::FromStr;
-
-use chrono::{DateTime, FixedOffset, TimeZone};
-use iref::IriBuf;
-use rdf_types::BlankIdBuf;
-
 use super::TypeCodec;
 use crate::{transform::TransformerState, CborValue, DecodeError, EncodeError};
+use chrono::{DateTime, FixedOffset, TimeZone};
+use std::str::FromStr;
 
 pub struct XsdDateCodec;
 
@@ -13,7 +9,7 @@ impl TypeCodec for XsdDateCodec {
     fn encode(
         &self,
         _state: &TransformerState,
-        _active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        _active_context: &json_ld::Context,
         value: &str,
     ) -> Result<CborValue, EncodeError> {
         let date = xsd_types::Date::from_str(value)
@@ -33,7 +29,7 @@ impl TypeCodec for XsdDateCodec {
     fn decode(
         &self,
         _state: &TransformerState,
-        _active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        _active_context: &json_ld::Context,
         value: &CborValue,
     ) -> Result<String, DecodeError> {
         match value {

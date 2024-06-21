@@ -64,38 +64,46 @@ impl IriCodecs {
                 array.extend(codec.encode(suffix)?);
                 Ok(CborValue::Array(array))
             }
-            None => Err(EncodeError::Codec(
-                "iri",
-                format!("unsupported IRI `{iri}`"),
-            )),
+            None => Ok(CborValue::Text(iri.as_str().to_owned())),
         }
     }
 
     pub fn decode(&self, value: &CborValue) -> Result<IriBuf, DecodeError> {
-        let array = value
-            .as_array()
-            .ok_or_else(|| DecodeError::Codec("iri", "expected array".to_owned()))?;
+        let text = match value {
+            CborValue::Array(array) => {
+                if array.is_empty() {
+                    return Err(DecodeError::Codec("iri", "missing IRI type".to_owned()));
+                }
 
-        if array.is_empty() {
-            return Err(DecodeError::Codec("iri", "missing IRI type".to_owned()));
-        }
+                let id: u64 = array[0]
+                    .as_integer()
+                    .ok_or_else(|| {
+                        DecodeError::Codec(
+                            "iri",
+                            "invalid IRI codec ID: expected integer".to_owned(),
+                        )
+                    })?
+                    .try_into()
+                    .map_err(|_| DecodeError::Codec("iri", "unknown IRI codec ID".to_owned()))?;
 
-        let id: u64 = array[0]
-            .as_integer()
-            .ok_or_else(|| {
-                DecodeError::Codec("iri", "invalid IRI codec ID: expected integer".to_owned())
-            })?
-            .try_into()
-            .map_err(|_| DecodeError::Codec("iri", "unknown IRI codec ID".to_owned()))?;
+                let (prefix, codec) = self
+                    .get_by_id(id)
+                    .ok_or_else(|| DecodeError::Codec("iri", "unknown IRI codec ID".to_owned()))?;
 
-        let (prefix, codec) = self
-            .get_by_id(id)
-            .ok_or_else(|| DecodeError::Codec("iri", "unknown IRI codec ID".to_owned()))?;
+                let suffix = codec.decode(&array[1..])?;
 
-        let suffix = codec.decode(&array[1..])?;
+                format!("{prefix}:{suffix}")
+            }
+            CborValue::Text(text) => text.clone(),
+            _ => {
+                return Err(DecodeError::Codec(
+                    "iri",
+                    "expected text or array".to_owned(),
+                ))
+            }
+        };
 
-        IriBuf::new(format!("{prefix}:{suffix}"))
-            .map_err(|_| DecodeError::Codec("iri", "invalid IRI".to_owned()))
+        IriBuf::new(text).map_err(|_| DecodeError::Codec("iri", "invalid IRI".to_owned()))
     }
 }
 

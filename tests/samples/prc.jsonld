@@ -18,12 +18,12 @@
     "familyName": "SMITH",
     "gender": "Male",
     "image": "data:image/png;base64,iVBORw0KGgo...kJggg==",
-    "residentSince": "2015-01-01",
+    "residentSince": "2015-01-01T00:00:00",
     "lprCategory": "C09",
     "lprNumber": "999-999-999",
     "commuterClassification": "C1",
     "birthCountry": "Bahamas",
-    "birthDate": "1958-07-17"
+    "birthDate": "1958-07-17T00:00:00"
   },
   "proof": {
     "type": "Ed25519Signature2018",

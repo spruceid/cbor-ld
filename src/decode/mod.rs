@@ -1,5 +1,3 @@
-use core::fmt;
-
 use crate::{
     contexts::REGISTERED_CONTEXTS,
     transform::{TransformedValue, Transformer, TransformerState},
@@ -9,7 +7,6 @@ use crate::{
 mod error;
 pub use error::*;
 use iref::{IriBuf, IriRef, IriRefBuf};
-use rdf_types::BlankIdBuf;
 
 /// Decoding options.
 #[derive(Debug)]
@@ -35,7 +32,6 @@ impl Default for DecodeOptions {
 pub async fn decode<L>(cbor_ld_document: &CborValue, loader: L) -> Result<JsonValue, DecodeError>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     decode_with(cbor_ld_document, loader, Default::default()).await
 }
@@ -49,7 +45,6 @@ pub async fn decode_with<L>(
 ) -> Result<JsonValue, DecodeError>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     match cbor_ld_document {
         CborValue::Tag(tag, value) => match CompressionMode::from_tag(*tag)? {
@@ -70,7 +65,6 @@ where
 pub async fn decode_from_bytes<L>(bytes: &[u8], loader: L) -> Result<JsonValue, DecodeError>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     decode_from_bytes_with(bytes, loader, Default::default()).await
 }
@@ -84,7 +78,6 @@ pub async fn decode_from_bytes_with<L>(
 ) -> Result<JsonValue, DecodeError>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     let cbor_ld_document = ciborium::from_reader(bytes)?;
     decode_with(&cbor_ld_document, loader, options).await
@@ -108,7 +101,6 @@ impl<L> Decoder<L> {
 impl<L> Decoder<L>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     pub async fn decode(&mut self, json_ld_document: &CborValue) -> Result<JsonValue, DecodeError> {
         let active_context = json_ld::Context::new(None);
@@ -117,7 +109,7 @@ where
 
     fn decode_vocab_term(
         &self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &CborValue,
     ) -> Result<JsonValue, DecodeError> {
         Ok(JsonValue::String(
@@ -129,7 +121,6 @@ where
 impl<L> Transformer for Decoder<L>
 where
     L: json_ld::Loader,
-    L::Error: fmt::Display,
 {
     type Input = CborValue;
     type Output = JsonValue;
@@ -144,27 +135,28 @@ where
     type Error = DecodeError;
 
     fn context_iri_ref(&self, value: &Self::Input) -> Result<IriRefBuf, Self::Error> {
-        let i = value
-            .as_integer()
-            .ok_or(DecodeError::InvalidVocabTermKind)?;
+        match value {
+            CborValue::Integer(i) => {
+                let i =
+                    u64::try_from(*i).map_err(|_| DecodeError::MissingTermFor(value.clone()))?;
 
-        let i = u64::try_from(i).map_err(|_| DecodeError::MissingTermFor(value.clone()))?;
-
-        Ok(self
-            .state
-            .context_map
-            .get_term(i)
-            .ok_or_else(|| DecodeError::MissingTermFor(value.clone()))?
-            .parse()
-            .unwrap())
+                Ok(self
+                    .state
+                    .context_map
+                    .get_term(i)
+                    .ok_or_else(|| DecodeError::MissingTermFor(value.clone()))?
+                    .parse()
+                    .unwrap())
+            }
+            CborValue::Text(t) => {
+                IriRefBuf::new(t.clone()).map_err(|e| DecodeError::InvalidContextIriRef(e.0))
+            }
+            _ => Err(DecodeError::InvalidVocabTermKind),
+        }
     }
 
-    fn context_id(
-        &self,
-        _value: &Self::Input,
-        iri_ref: &IriRef,
-    ) -> Result<Self::Output, Self::Error> {
-        Ok(JsonValue::String(iri_ref.as_str().into()))
+    fn context_id(&self, _value: &Self::Input, iri_ref: &IriRef) -> Self::Output {
+        JsonValue::String(iri_ref.as_str().into())
     }
 
     fn term_key(&self, term: &str, _plural: bool) -> Result<Self::OutputKey, Self::Error> {
@@ -209,7 +201,7 @@ where
 
     fn transform_vocab(
         &self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
     ) -> Result<Self::Output, Self::Error> {
         self.decode_vocab_term(active_context, value)
@@ -221,7 +213,7 @@ where
 
     fn transform_typed_value(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
         type_: Option<&json_ld::Type<IriBuf>>,
     ) -> Result<Option<Self::Output>, Self::Error> {
@@ -242,7 +234,7 @@ where
 
     async fn transform_object(
         &mut self,
-        active_context: &json_ld::Context<IriBuf, BlankIdBuf>,
+        active_context: &json_ld::Context,
         value: &Self::Input,
     ) -> Result<Self::Output, Self::Error> {
         match value {

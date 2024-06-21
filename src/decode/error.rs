@@ -1,5 +1,3 @@
-use core::fmt;
-
 use crate::{
     transform::{DuplicateKey, ExpectedObject, MissingKeyTerm, UndefinedTerm},
     CborValue,
@@ -20,7 +18,7 @@ pub enum DecodeError {
     ExpectedNodeObject,
 
     #[error("JSON-LD context processing failed: {0}")]
-    ContextProcessing(String),
+    ContextProcessing(#[from] json_ld::context_processing::Error),
 
     #[error("duplicate entry")]
     DuplicateEntry(CborValue),
@@ -43,14 +41,11 @@ pub enum DecodeError {
     #[error("invalid vocab value kind")]
     InvalidVocabTermKind,
 
+    #[error("invalid JSON-LD context IRI reference: {0}")]
+    InvalidContextIriRef(String),
+
     #[error("`{0}` codec error: {1}")]
     Codec(&'static str, String),
-}
-
-impl<E: fmt::Display> From<json_ld::context_processing::Error<E>> for DecodeError {
-    fn from(value: json_ld::context_processing::Error<E>) -> Self {
-        Self::ContextProcessing(value.to_string())
-    }
 }
 
 impl From<DuplicateKey<CborValue>> for DecodeError {
