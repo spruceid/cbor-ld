@@ -38,6 +38,3 @@ json-ld = { version = "0.18", features = ["reqwest"] }
 yansi = "1.0.1"
 json-syntax = "0.12.4"
 hex = "0.4.3"
-
-[patch.crates-io]
-json-ld = { path = "/home/work/Documents/Community/rdf/json-ld" }
