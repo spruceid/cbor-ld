@@ -32,26 +32,20 @@ impl Default for EncodeOptions {
 
 /// Encodes a JSON-LD document into CBOR-LD using the given JSON-LD context
 /// loader and the default options.
-pub async fn encode<L>(
+pub async fn encode(
     json_ld_document: &json_ld::syntax::Value,
-    loader: L,
-) -> Result<CborValue, EncodeError>
-where
-    L: json_ld::Loader,
-{
+    loader: impl json_ld::Loader,
+) -> Result<CborValue, EncodeError> {
     encode_with(json_ld_document, loader, Default::default()).await
 }
 
 /// Encodes a JSON-LD document into CBOR-LD using the given JSON-LD context
 /// loader and the given options.
-pub async fn encode_with<L>(
+pub async fn encode_with(
     json_ld_document: &json_ld::syntax::Value,
-    loader: L,
+    loader: impl json_ld::Loader,
     options: EncodeOptions,
-) -> Result<CborValue, EncodeError>
-where
-    L: json_ld::Loader,
-{
+) -> Result<CborValue, EncodeError> {
     let cbor_value = match options.compression_mode {
         CompressionMode::Uncompressed => {
             todo!()
@@ -71,26 +65,20 @@ where
 
 /// Encodes a JSON-LD document into CBOR-LD bytes using the given JSON-LD
 /// context loader and the default options.
-pub async fn encode_to_bytes<L>(
+pub async fn encode_to_bytes(
     json_ld_document: &json_ld::syntax::Value,
-    loader: L,
-) -> Result<Vec<u8>, EncodeError>
-where
-    L: json_ld::Loader,
-{
+    loader: impl json_ld::Loader,
+) -> Result<Vec<u8>, EncodeError> {
     encode_to_bytes_with(json_ld_document, loader, Default::default()).await
 }
 
 /// Encodes a JSON-LD document into CBOR-LD bytes using the given JSON-LD
 /// context loader and the given options.
-pub async fn encode_to_bytes_with<L>(
+pub async fn encode_to_bytes_with(
     json_ld_document: &json_ld::syntax::Value,
-    loader: L,
+    loader: impl json_ld::Loader,
     options: EncodeOptions,
-) -> Result<Vec<u8>, EncodeError>
-where
-    L: json_ld::Loader,
-{
+) -> Result<Vec<u8>, EncodeError> {
     encode_with(json_ld_document, loader, options)
         .await
         .map(cbor_into_bytes)

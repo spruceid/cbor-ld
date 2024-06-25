@@ -1,6 +1,6 @@
 use cbor_ld::{contexts::REGISTERED_CONTEXTS, DecodeOptions, EncodeOptions, IdMap};
 use clap::Parser;
-use iref::{IriBuf, IriRefBuf};
+use iref::{Iri, IriBuf, IriRefBuf};
 use json_ld::{syntax::Parse, ChainLoader, FsLoader, Print, ReqwestLoader};
 use serde::Deserialize;
 use std::{
@@ -263,50 +263,15 @@ enum Error {
 }
 
 enum Loader {
-    Offline(FsLoader<IriBuf>),
-    Online(ChainLoader<FsLoader<IriBuf>, ReqwestLoader>),
+    Offline(FsLoader),
+    Online(ChainLoader<FsLoader, ReqwestLoader>),
 }
 
-#[derive(Debug, thiserror::Error)]
-enum LoaderError {
-    #[error(transparent)]
-    Local(json_ld::loader::fs::Error),
-
-    #[error(transparent)]
-    Remote(
-        json_ld::loader::chain::Error<json_ld::loader::fs::Error, json_ld::loader::reqwest::Error>,
-    ),
-}
-
-impl json_ld::LoaderError for LoaderError {
-    fn into_iri_and_message(self) -> (IriBuf, String) {
+impl json_ld::Loader for Loader {
+    async fn load(&self, url: &Iri) -> json_ld::LoadingResult<IriBuf> {
         match self {
-            Self::Local(e) => e.into_iri_and_message(),
-            Self::Remote(e) => e.into_iri_and_message(),
-        }
-    }
-}
-
-impl json_ld::Loader<IriBuf> for Loader {
-    type Error = LoaderError;
-
-    async fn load_with<V>(
-        &mut self,
-        vocabulary: &mut V,
-        url: IriBuf,
-    ) -> json_ld::LoadingResult<IriBuf, Self::Error>
-    where
-        V: json_ld::rdf_types::vocabulary::IriVocabularyMut<Iri = IriBuf>,
-    {
-        match self {
-            Self::Offline(l) => l
-                .load_with(vocabulary, url)
-                .await
-                .map_err(LoaderError::Local),
-            Self::Online(l) => l
-                .load_with(vocabulary, url)
-                .await
-                .map_err(LoaderError::Remote),
+            Self::Offline(l) => l.load(url).await,
+            Self::Online(l) => l.load(url).await,
         }
     }
 }

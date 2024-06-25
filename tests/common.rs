@@ -1,12 +1,11 @@
 use std::str::FromStr;
 
 use cbor_ld::{decode_from_bytes, encode_to_bytes, JsonValue};
-use iref::IriBuf;
 use json_ld::{FsLoader, Print};
 use json_syntax::BorrowUnordered;
 use static_iref::iri;
 
-pub fn create_context_loader() -> FsLoader<IriBuf> {
+pub fn create_context_loader() -> FsLoader {
     let mut loader = FsLoader::new();
 
     loader.mount(

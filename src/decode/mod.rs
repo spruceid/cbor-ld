@@ -29,23 +29,20 @@ impl Default for DecodeOptions {
 
 /// Decodes a CBOR-LD document using the given JSON-LD context loader and the
 /// default options.
-pub async fn decode<L>(cbor_ld_document: &CborValue, loader: L) -> Result<JsonValue, DecodeError>
-where
-    L: json_ld::Loader,
-{
+pub async fn decode(
+    cbor_ld_document: &CborValue,
+    loader: impl json_ld::Loader,
+) -> Result<JsonValue, DecodeError> {
     decode_with(cbor_ld_document, loader, Default::default()).await
 }
 
 /// Decodes a CBOR-LD document using the given JSON-LD context loader and the
 /// given options.
-pub async fn decode_with<L>(
+pub async fn decode_with(
     cbor_ld_document: &CborValue,
-    loader: L,
+    loader: impl json_ld::Loader,
     options: DecodeOptions,
-) -> Result<JsonValue, DecodeError>
-where
-    L: json_ld::Loader,
-{
+) -> Result<JsonValue, DecodeError> {
     match cbor_ld_document {
         CborValue::Tag(tag, value) => match CompressionMode::from_tag(*tag)? {
             CompressionMode::Uncompressed => {
@@ -62,23 +59,20 @@ where
 
 /// Decodes a CBOR-LD document bytes using the given JSON-LD context loader and
 /// the default options.
-pub async fn decode_from_bytes<L>(bytes: &[u8], loader: L) -> Result<JsonValue, DecodeError>
-where
-    L: json_ld::Loader,
-{
+pub async fn decode_from_bytes(
+    bytes: &[u8],
+    loader: impl json_ld::Loader,
+) -> Result<JsonValue, DecodeError> {
     decode_from_bytes_with(bytes, loader, Default::default()).await
 }
 
 /// Decodes a CBOR-LD document bytes using the given JSON-LD context loader and
 /// the given options.
-pub async fn decode_from_bytes_with<L>(
+pub async fn decode_from_bytes_with(
     bytes: &[u8],
-    loader: L,
+    loader: impl json_ld::Loader,
     options: DecodeOptions,
-) -> Result<JsonValue, DecodeError>
-where
-    L: json_ld::Loader,
-{
+) -> Result<JsonValue, DecodeError> {
     let cbor_ld_document = ciborium::from_reader(bytes)?;
     decode_with(&cbor_ld_document, loader, options).await
 }
