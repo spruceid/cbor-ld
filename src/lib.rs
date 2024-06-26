@@ -1,135 +1,157 @@
-use std::collections::HashMap;
-use truage::TruageCborLdError;
-pub mod encoders;
-pub mod truage;
+//! This library provides a Rust implementation of [CBOR-LD], a compression
+//! format for [JSON-LD] based on the [Concise Binary Object Representation
+//! (CBOR)][CBOR].
+//!
+//! [CBOR-LD]: <https://json-ld.github.io/cbor-ld-spec/>
+//! [JSON-LD]: <https://www.w3.org/TR/json-ld/>
+//! [CBOR]: <https://www.rfc-editor.org/rfc/rfc8949.html>
+//!
+//! # Usage
+//!
+//! ```
+//! # #[tokio::main] async fn main() {
+//! // Parse an input JSON-LD document.
+//! let json: cbor_ld::JsonValue = include_str!("../tests/samples/note.jsonld").parse().unwrap();
+//!
+//! // Create a JSON-LD context loader.
+//! let mut context_loader = json_ld::loader::ReqwestLoader::new();
+//!
+//! // Encode (compress) the JSON-LD document into CBOR-LD.
+//! let encoded: cbor_ld::CborValue = cbor_ld::encode(&json, &mut context_loader).await.unwrap();
+//!
+//! // Decode (decompress) the CBOR-LD document back into JSON-LD.
+//! let decoded: cbor_ld::JsonValue = cbor_ld::decode(&encoded, &mut context_loader).await.unwrap();
+//!
+//! // The input and decoded JSON values should be equal
+//! // (modulo objects entries ordering and some compact IRI expansions).
+//! use json_syntax::BorrowUnordered;
+//! assert_eq!(json.as_unordered(), decoded.as_unordered())
+//! # }
+//! ```
+//!
+//! # Command-line interface
+//!
+//! A command-line interface is provided to easily encode and decode CBOR-LD
+//! documents from the terminal.
+//!
+//! ## Install & run
+//!
+//! You can install the command-line interface using the `bin` feature:
+//! ```console
+//! cargo install --path . --features=bin
+//! ```
+//!
+//! This will install a `cbor-ld` executable:
+//! ```console
+//! cbor-ld <args>
+//! ```
+//!
+//! Alternatively you can directly run the command-line interface without
+//! installing it:
+//! ```console
+//! cargo run --features=bin -- <args>
+//! ```
+//!
+//! ## Usage
+//!
+//! Use the `-h` (`--help`) flag to display all the available commands and
+//! options:
+//! ```console
+//! cbor-ld -h
+//! ```
+//!
+//! The executable provides two commands `encode` and `decode` to compress a
+//! JSON-LD document into CBOR-LD, and back.
+//! ```console
+//! cbor-ld encode path/to/input.jsonld > path/to/output.cbor
+//! ```
+//!
+//! If no input file is given, the standard input will be used.
+//! Using the `-x` (`--hexadecimal`) option the CBOR input/output will be
+//! decoded/encoded as hexadecimal.
+//! ```console
+//! cbor-ld decode -x path/to/input.cbor.hex > path/to/output.jsonld
+//! ```
+//!
+//! By default remote JSON-LD contexts will be fetched online. You can change
+//! this behavior by adding file-system endpoints for some URLs using the
+//! `-m` (`--mount`) option, and/or disable HTTP queries alltogether using the
+//! `-o` (`--offline`) flag.
+//! ```console
+//! cbor-ld --offline -m "https://www.w3.org/ns/credentials=tests/contexts/credentials" decode path/to/input.cbor > path/to/output.jsonld
+//! ```
+//!
+//! These options can also be provided using a TOML configuration files using
+//! the `-f` (`--config`) option.
+//! ```console
+//! cbor-ld -f path/to/config.toml encode path/to/input.jsonld > path/to/output.cbor
+//! ```
+//!
+//! An example configuration file is provided at `tests/config.toml`.
+pub use ciborium::Value as CborValue;
+pub use json_ld::syntax::Value as JsonValue;
 
-//Note: These context and vocab maps are focused on TruAge and subject to change.
-//Cbor-ld is not an established standard, and Digital Bazaar can make unilateral changes to encoding vocabulary.
-//Before using Cbor-ld for anything, make sure that you can't use base64url encoding instead.
+pub type CborObject = Vec<(CborValue, CborValue)>;
+pub type JsonObject = json_ld::syntax::Object;
 
-pub fn get_contextmap() -> HashMap<String, u8> {
-    HashMap::<String, u8>::from([
-        (String::from("https://www.w3.org/ns/activitystreams"), 0x10),
-        (String::from("https://www.w3.org/2018/credentials/v1"), 0x11),
-        (String::from("https://www.w3.org/ns/did/v1"), 0x12),
-        (
-            String::from("https://w3id.org/security/suites/ed25519-2018/v1"),
-            0x13,
-        ),
-        (
-            String::from("https://w3id.org/security/suites/ed25519-2020/v1"),
-            0x14,
-        ),
-        (String::from("https://w3id.org/cit/v1"), 0x15),
-        (String::from("https://w3id.org/age/v1"), 0x16),
-        (
-            String::from("https://w3id.org/security/suites/x25519-2020/v1"),
-            0x17,
-        ),
-        (String::from("https://w3id.org/veres-one/v1"), 0x18),
-        (String::from("https://w3id.org/webkms/v1"), 0x19),
-        (String::from("https://w3id.org/zcap/v1"), 0x1A),
-        (
-            String::from("https://w3id.org/security/suites/hmac-2019/v1"),
-            0x1B,
-        ),
-        (
-            String::from("https://w3id.org/security/suites/aes-2019/v1"),
-            0x1C,
-        ),
-        (String::from("https://w3id.org/vaccination/v1"), 0x1D),
-        (
-            String::from("https://w3id.org/vc-revocation-list-2020/v1"),
-            0x1E,
-        ),
-        (String::from("https://w3id.org/dcc/v1c"), 0x1F),
-        (String::from("https://w3id.org/vc/status-list/v1"), 0x20),
-    ])
+pub mod codecs;
+pub mod contexts;
+mod decode;
+mod encode;
+pub mod keywords;
+pub mod utils;
+pub use decode::*;
+pub use encode::*;
+pub mod diagnostic;
+mod id;
+pub mod transform;
+
+pub use codecs::Codecs;
+pub use id::*;
+
+/// Compression mode.
+#[derive(Debug, Default)]
+pub enum CompressionMode {
+    /// Uncompressed.
+    Uncompressed,
+
+    /// Version 1 compression.
+    #[default]
+    Version1,
 }
 
-pub fn get_keywordsmap() -> HashMap<String, u8> {
-    HashMap::<String, u8>::from([
-        (String::from("@context"), 0),
-        (String::from("@type"), 2),
-        (String::from("@id"), 4),
-        (String::from("@value"), 6),
-        (String::from("@direction"), 8),
-        (String::from("@graph"), 10),
-        (String::from("@graph"), 12),
-        (String::from("@index"), 14),
-        (String::from("@json"), 16),
-        (String::from("@language"), 18),
-        (String::from("@list"), 20),
-        (String::from("@nest"), 22),
-        (String::from("@reverse"), 24),
-        //digitalbazaar might remove the following
-        (String::from("@base"), 26),
-        (String::from("@container"), 28),
-        (String::from("@default"), 30),
-        (String::from("@embed"), 32),
-        (String::from("@explicit"), 34),
-        (String::from("@none"), 36),
-        (String::from("@omitDefault"), 38),
-        (String::from("@prefix"), 40),
-        (String::from("@preserve"), 42),
-        (String::from("@protected"), 44),
-        (String::from("@requireAll"), 46),
-        (String::from("@set"), 48),
-        (String::from("@version"), 50),
-        (String::from("@vocab"), 52),
-        //Hardcoded for Truage implementation
-        (String::from("EcdsaSecp256k1Signature2019"), 100),
-        (String::from("EcdsaSecp256r1Signature2019"), 102),
-        (String::from("Ed25519Signature2018"), 104),
-        (String::from("RsaSignature2018"), 106),
-        (String::from("VerifiableCredential"), 108),
-        (String::from("VerifiablePresentation"), 110),
-        (String::from("id"), 112),
-        (String::from("proof"), 114),
-        (String::from("type"), 116),
-        (String::from("cred"), 118),
-        (String::from("holder"), 120),
-        (String::from("sec"), 122),
-        (String::from("verifiableCredential"), 124),
-        (String::from("AgeVerificationContainerCredential"), 126),
-        (String::from("AgeVerificationCredential"), 128),
-        (String::from("OverAgeTokenCredential"), 130),
-        (String::from("PersonalPhotoCredential"), 132),
-        (String::from("VerifiableCredentialRefreshService2021"), 134),
-        (String::from("anchoredRes&ource"), 136),
-        (String::from("concealedIdToken"), 138),
-        (String::from("description"), 140),
-        (String::from("digestMultibase"), 142),
-        (String::from("image"), 144),
-        (String::from("name"), 146),
-        (String::from("overAge"), 148),
-        (String::from("Ed25519Signature2020"), 150),
-        (String::from("Ed25519VerificationKey2020"), 152),
-        (String::from("credentialSchema"), 154),
-        (String::from("credentialStatus"), 156),
-        (String::from("credentialSubject"), 158),
-        (String::from("evidence"), 160),
-        (String::from("expirationDate"), 162),
-        (String::from("issuanceDate"), 164),
-        (String::from("issued"), 166),
-        (String::from("issuer"), 168),
-        (String::from("refreshService"), 170),
-        (String::from("termsOfUse"), 172),
-        (String::from("validForm"), 174),
-        (String::from("validUntil"), 176),
-        (String::from("xsd"), 178),
-        (String::from("challenge"), 180),
-        (String::from("created"), 182),
-        (String::from("domain"), 184),
-        (String::from("expires"), 186),
-        (String::from("nonce"), 188),
-        (String::from("proofPurpose"), 190),
-        (String::from("proofValue"), 192),
-        (String::from("verificationMethod"), 194),
-        (String::from("assertionMethod"), 196),
-        (String::from("authentication"), 198),
-        (String::from("capabilityDelegation"), 200),
-        (String::from("capabilityInvocation"), 202),
-        (String::from("keyAgreement"), 204),
-    ])
+impl CompressionMode {
+    /// Reads the byte value of a compression mode.
+    pub fn from_byte(b: u8) -> Option<Self> {
+        match b {
+            0 => Some(Self::Uncompressed),
+            1 => Some(Self::Version1),
+            _ => None,
+        }
+    }
+
+    /// Returns the byte value of a compression mode.
+    ///
+    /// This byte value is included in the outer CBOR-LD tag value.
+    pub fn to_byte(&self) -> u8 {
+        match self {
+            Self::Uncompressed => 0,
+            Self::Version1 => 1,
+        }
+    }
+
+    /// Builds a CBOR-LD header tag from this compression mode.
+    pub fn to_tag(&self) -> u64 {
+        0x0500 | self.to_byte() as u64
+    }
+
+    /// Extracts the compression mode from a CBOR-LD header tag.
+    pub fn from_tag(tag: u64) -> Result<Self, DecodeError> {
+        if tag >> 8 != 0x05 {
+            return Err(DecodeError::NotCborLd);
+        }
+
+        let mode = (tag & 0xff) as u8;
+        Self::from_byte(mode).ok_or(DecodeError::UnsupportedCompressionMode(mode))
+    }
 }

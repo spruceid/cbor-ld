@@ -1,0 +1,10 @@
+{
+  "@context": {
+    "@protected": true,
+    "id": "@id",
+    "type": "@type",
+    "CompleteMrzBarcode": "https://w3id.org/citizenship/utopia#CompleteMrzBarcode",
+    "did:key:zDnaew4xPhC9KGfVsFUB5zgDs3YfTpXXyYJAhhdHGBo8hdHPq": "did:key:zDnaew4xPhC9KGfVsFUB5zgDs3YfTpXXyYJAhhdHGBo8hdHPq",
+    "did:key:zDnaew4xPhC9KGfVsFUB5zgDs3YfTpXXyYJAhhdHGBo8hdHPq#zDnaew4xPhC9KGfVsFUB5zgDs3YfTpXXyYJAhhdHGBo8hdHPq": "did:key:zDnaew4xPhC9KGfVsFUB5zgDs3YfTpXXyYJAhhdHGBo8hdHPq#zDnaew4xPhC9KGfVsFUB5zgDs3YfTpXXyYJAhhdHGBo8hdHPq"
+  }
+}

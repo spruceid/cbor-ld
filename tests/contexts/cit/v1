@@ -1,0 +1,19 @@
+{
+  "@context": {
+    "@protected": true,
+    "type": "@type",
+    "ConcealedIdTokenCredential": "https://w3id.org/cit#ConcealedIdTokenCredential",
+    "concealedIdToken": {
+      "@id": "https://w3id.org/cit#concealedIdToken",
+      "@type": "https://w3id.org/security#multibase"
+    },
+    "ConcealedIdToken": {
+      "@id": "https://w3id.org/cit#ConcealedIdToken",
+      "@context": {
+        "@protected": true,
+        "meta": {"@id": "https://w3id.org/cit#meta", "@type": "https://w3id.org/security#multibase"},
+        "payload": {"@id": "https://w3id.org/cit#payload", "@type": "https://w3id.org/security#multibase"}
+      }
+    }
+  }
+}
