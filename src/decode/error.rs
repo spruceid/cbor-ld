@@ -23,8 +23,11 @@ pub enum DecodeError {
     #[error("duplicate entry")]
     DuplicateEntry(CborValue),
 
-    #[error("missing term")]
-    MissingTermFor(CborValue),
+    #[error("undefined compressed context: {0:?}")]
+    UndefinedCompressedContext(CborValue),
+
+    #[error("undefined compressed term: {0:?}")]
+    UndefinedCompressedTerm(CborValue),
 
     #[error("undefined term")]
     UndefinedTerm(String),
@@ -56,7 +59,7 @@ impl From<DuplicateKey<CborValue>> for DecodeError {
 
 impl From<MissingKeyTerm<CborValue>> for DecodeError {
     fn from(value: MissingKeyTerm<CborValue>) -> Self {
-        Self::MissingTermFor(value.0)
+        Self::UndefinedCompressedTerm(value.0)
     }
 }
 

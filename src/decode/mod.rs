@@ -132,13 +132,13 @@ where
         match value {
             CborValue::Integer(i) => {
                 let i =
-                    u64::try_from(*i).map_err(|_| DecodeError::MissingTermFor(value.clone()))?;
+                    u64::try_from(*i).map_err(|_| DecodeError::UndefinedCompressedContext(value.clone()))?;
 
                 Ok(self
                     .state
                     .context_map
                     .get_term(i)
-                    .ok_or_else(|| DecodeError::MissingTermFor(value.clone()))?
+                    .ok_or_else(|| DecodeError::UndefinedCompressedContext(value.clone()))?
                     .parse()
                     .unwrap())
             }
@@ -168,7 +168,7 @@ where
     ) -> Result<Option<(&'a str, bool)>, Self::Error> {
         let i = key.as_integer().ok_or(DecodeError::InvalidVocabTermKind)?;
 
-        let i = u64::try_from(i).map_err(|_| DecodeError::MissingTermFor(key.clone()))?;
+        let i = u64::try_from(i).map_err(|_| DecodeError::UndefinedCompressedTerm(key.clone()))?;
 
         Ok(self.state.allocator.decode_term(i))
     }
@@ -178,13 +178,13 @@ where
             .as_integer()
             .ok_or(DecodeError::InvalidVocabTermKind)?;
 
-        let i = u64::try_from(i).map_err(|_| DecodeError::MissingTermFor(value.clone()))?;
+        let i = u64::try_from(i).map_err(|_| DecodeError::UndefinedCompressedTerm(value.clone()))?;
 
         self.state
             .allocator
             .decode_term(i)
             .map(|(term, _)| term)
-            .ok_or_else(|| DecodeError::MissingTermFor(value.clone()))
+            .ok_or_else(|| DecodeError::UndefinedCompressedTerm(value.clone()))
     }
 
     fn transform_id(&self, value: &Self::Input) -> Result<Self::Output, Self::Error> {

@@ -580,7 +580,7 @@ impl TransformerState {
 
                 self.allocator
                     .decode_term(id)
-                    .ok_or_else(|| DecodeError::MissingTermFor(value.clone()))
+                    .ok_or_else(|| DecodeError::UndefinedCompressedTerm(value.clone()))
                     .map(|(s, _)| s.to_owned())
             }
             other => self.codecs.iri.decode(other).map(IriBuf::into_string),

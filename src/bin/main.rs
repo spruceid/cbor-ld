@@ -38,7 +38,7 @@ struct Configuration {
 
     /// Add an application-specific context ID.
     ///
-    /// The value must be of the form `id=iri-reference` where id is an
+    /// The value must be of the form `iri-reference=id` where id is an
     /// application-specific non-negative integer identifier for the JSON-LD
     /// context identifier by the given IRI reference.
     #[clap(short, long = "context", global = true)]
@@ -219,10 +219,10 @@ async fn run(args: Args) -> Result<(), Error> {
         }
         Command::Decode { input, hexadecimal } => {
             let bytes = if hexadecimal {
-                read_input(input)?
-            } else {
                 let hex_bytes = read_input(input)?;
                 hex::decode(hex_bytes)?
+            } else {
+                read_input(input)?
             };
 
             let options = DecodeOptions {
