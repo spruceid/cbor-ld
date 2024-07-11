@@ -131,8 +131,8 @@ where
     fn context_iri_ref(&self, value: &Self::Input) -> Result<IriRefBuf, Self::Error> {
         match value {
             CborValue::Integer(i) => {
-                let i =
-                    u64::try_from(*i).map_err(|_| DecodeError::UndefinedCompressedContext(value.clone()))?;
+                let i = u64::try_from(*i)
+                    .map_err(|_| DecodeError::UndefinedCompressedContext(value.clone()))?;
 
                 Ok(self
                     .state
@@ -178,7 +178,8 @@ where
             .as_integer()
             .ok_or(DecodeError::InvalidVocabTermKind)?;
 
-        let i = u64::try_from(i).map_err(|_| DecodeError::UndefinedCompressedTerm(value.clone()))?;
+        let i =
+            u64::try_from(i).map_err(|_| DecodeError::UndefinedCompressedTerm(value.clone()))?;
 
         self.state
             .allocator
