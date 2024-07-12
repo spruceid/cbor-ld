@@ -75,7 +75,7 @@ impl TypeCodec for XsdDateTimeCodec {
                     .try_into()
                     .map_err(|_| DecodeError::Codec("xsd-date-time", "overflow".to_string()))?;
 
-                let milliseconds: u32 = items[0]
+                let milliseconds: u32 = items[1]
                     .as_integer()
                     .ok_or_else(|| {
                         DecodeError::Codec("xsd-date-time", "expected integer".to_string())
