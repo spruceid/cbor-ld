@@ -20,6 +20,7 @@ lazy_static! {
         ("https://w3id.org/vc-revocation-list-2020/v1", 0x1E),
         ("https://w3id.org/dcc/v1", 0x1F),
         ("https://w3id.org/vc/status-list/v1", 0x20),
+        ("https://www.w3.org/ns/credentials/v2", 0x21),
         ("https://w3id.org/security/data-integrity/v1", 0x30),
         ("https://w3id.org/security/multikey/v1", 0x31),
         ("https://purl.imsglobal.org/spec/ob/v3p0/context.json", 0x32),
