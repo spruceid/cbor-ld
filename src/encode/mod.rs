@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
     contexts::REGISTERED_CONTEXTS,
     transform::{Transformer, TransformerState},
@@ -176,8 +178,15 @@ where
         Ok(Some((key.as_str(), value.is_array())))
     }
 
-    fn value_term<'a>(&'a self, value: &'a Self::Input) -> Result<&'a str, Self::Error> {
-        value.as_str().ok_or(EncodeError::InvalidVocabTermKind)
+    fn value_term<'a>(
+        &'a self,
+        _active_context: &json_ld::Context,
+        value: &'a Self::Input,
+    ) -> Result<Cow<'a, str>, Self::Error> {
+        value
+            .as_str()
+            .map(Cow::Borrowed)
+            .ok_or(EncodeError::InvalidVocabTermKind)
     }
 
     fn transform_id(&self, value: &Self::Input) -> Result<Self::Output, Self::Error> {

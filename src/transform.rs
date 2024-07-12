@@ -162,6 +162,8 @@ pub struct UndefinedTerm(pub String);
 
 pub struct ExpectedObject;
 
+pub struct InvalidTypeKind;
+
 pub trait Transformer {
     type Input: TransformedValue<Object = Self::InputObject>;
     type Output: TransformedValue<Object = Self::OutputObject>;
@@ -177,7 +179,8 @@ pub trait Transformer {
         + From<ExpectedObject>
         + From<DuplicateKey<Self::InputKey>>
         + From<MissingKeyTerm<<Self::InputKey as ToOwned>::Owned>>
-        + From<UndefinedTerm>;
+        + From<UndefinedTerm>
+        + From<InvalidTypeKind>;
 
     fn context_iri_ref(&self, value: &Self::Input) -> Result<IriRefBuf, Self::Error>;
 
@@ -203,7 +206,11 @@ pub trait Transformer {
             .map_err(Into::into)
     }
 
-    fn value_term<'a>(&'a self, value: &'a Self::Input) -> Result<&'a str, Self::Error>;
+    fn value_term<'a>(
+        &'a self,
+        active_context: &json_ld::Context,
+        value: &'a Self::Input,
+    ) -> Result<Cow<'a, str>, Self::Error>;
 
     /// Use the id codec to transform an id value.
     fn transform_id(&self, value: &Self::Input) -> Result<Self::Output, Self::Error>;
@@ -376,8 +383,8 @@ pub trait Transformer {
             if let Some((term, plural)) = self.key_term(key, value)? {
                 if is_alias(&active_context, term, Keyword::Type) {
                     for ty in value.force_as_array(plural) {
-                        let ty_term = self.value_term(ty)?;
-                        types.push(ty_term.to_owned());
+                        let ty_term = self.value_term(&active_context, ty)?;
+                        types.push(ty_term.into_owned());
                     }
                 }
             }
@@ -422,17 +429,17 @@ pub trait Transformer {
             }
 
             if is_alias_with_def(&key_term, def, Keyword::Type) {
-                let cbor_value = match value.as_array() {
-                    Some(values) => {
-                        let mut cbor_values = Vec::with_capacity(values.len());
+                let cbor_value = if plural {
+                    let values = value.as_array().ok_or(InvalidTypeKind)?;
+                    let mut cbor_values = Vec::with_capacity(values.len());
 
-                        for value in values {
-                            cbor_values.push(self.transform_vocab(&active_context, value)?);
-                        }
-
-                        Self::Output::new_array(cbor_values)
+                    for value in values {
+                        cbor_values.push(self.transform_vocab(&active_context, value)?);
                     }
-                    None => self.transform_vocab(&active_context, value)?,
+
+                    Self::Output::new_array(cbor_values)
+                } else {
+                    self.transform_vocab(&active_context, value)?
                 };
 
                 result.push((cbor_key, cbor_value));
@@ -533,38 +540,24 @@ impl TransformerState {
         match self.allocator.encode_term(value, false) {
             Some(id) => Ok(CborValue::Integer(id.into())),
             None => {
-                let mut value = Cow::Borrowed(value);
+                let mut expanded_value = Cow::Borrowed(value);
 
                 // Decode CURIE term.
-                if let Some((prefix, suffix)) = value.split_once(':') {
+                if let Some((prefix, suffix)) = expanded_value.split_once(':') {
                     if let Some(prefix_def) = active_context.get(prefix) {
                         if prefix_def.prefix() {
                             let prefix_value = prefix_def
                                 .value()
                                 .ok_or(EncodeError::InvalidTermDefinition)?;
-                            value = Cow::Owned(format!("{prefix_value}:{suffix}"))
+                            expanded_value = Cow::Owned(format!("{prefix_value}:{suffix}"))
                         }
                     }
                 }
 
-                let iri = match Iri::new(value.as_ref()) {
-                    Ok(iri) => Cow::Borrowed(iri),
-                    Err(_) => match active_context.vocabulary() {
-                        Some(vocab) => match IriBuf::new(format!("{vocab}{value}")) {
-                            Ok(iri) => Cow::Owned(iri),
-                            Err(_) => {
-                                return Err(EncodeError::InvalidVocabTerm(
-                                    value.as_ref().to_owned(),
-                                ))
-                            }
-                        },
-                        None => {
-                            return Err(EncodeError::InvalidVocabTerm(value.as_ref().to_owned()))
-                        }
-                    },
-                };
-
-                self.codecs.iri.encode(&iri)
+                match Iri::new(expanded_value.as_ref()) {
+                    Ok(iri) => self.codecs.iri.encode(iri),
+                    Err(_) => Ok(CborValue::Text(value.to_owned())),
+                }
             }
         }
     }
@@ -583,6 +576,7 @@ impl TransformerState {
                     .ok_or_else(|| DecodeError::UndefinedCompressedTerm(value.clone()))
                     .map(|(s, _)| s.to_owned())
             }
+            CborValue::Text(t) => Ok(t.clone()),
             other => self.codecs.iri.decode(other).map(IriBuf::into_string),
         }
     }

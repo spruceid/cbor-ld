@@ -1,4 +1,6 @@
-use crate::transform::{DuplicateKey, ExpectedObject, MissingKeyTerm, UndefinedTerm};
+use crate::transform::{
+    DuplicateKey, ExpectedObject, InvalidTypeKind, MissingKeyTerm, UndefinedTerm,
+};
 use iref::IriRefBuf;
 
 #[derive(Debug, thiserror::Error)]
@@ -67,5 +69,11 @@ impl From<UndefinedTerm> for EncodeError {
 impl From<ExpectedObject> for EncodeError {
     fn from(_value: ExpectedObject) -> Self {
         Self::ExpectedNodeObject
+    }
+}
+
+impl From<InvalidTypeKind> for EncodeError {
+    fn from(_value: InvalidTypeKind) -> Self {
+        Self::InvalidVocabTermKind
     }
 }

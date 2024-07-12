@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
     contexts::REGISTERED_CONTEXTS,
     transform::{TransformedValue, Transformer, TransformerState},
@@ -105,10 +107,8 @@ where
         &self,
         active_context: &json_ld::Context,
         value: &CborValue,
-    ) -> Result<JsonValue, DecodeError> {
-        Ok(JsonValue::String(
-            self.state.decode_vocab_term(active_context, value)?.into(),
-        ))
+    ) -> Result<String, DecodeError> {
+        self.state.decode_vocab_term(active_context, value)
     }
 }
 
@@ -145,7 +145,7 @@ where
             CborValue::Text(t) => {
                 IriRefBuf::new(t.clone()).map_err(|e| DecodeError::InvalidContextIriRef(e.0))
             }
-            _ => Err(DecodeError::InvalidVocabTermKind),
+            _ => Err(DecodeError::InvalidContextTermKind),
         }
     }
 
@@ -173,19 +173,13 @@ where
         Ok(self.state.allocator.decode_term(i))
     }
 
-    fn value_term<'a>(&'a self, value: &'a Self::Input) -> Result<&'a str, Self::Error> {
-        let i = value
-            .as_integer()
-            .ok_or(DecodeError::InvalidVocabTermKind)?;
-
-        let i =
-            u64::try_from(i).map_err(|_| DecodeError::UndefinedCompressedTerm(value.clone()))?;
-
-        self.state
-            .allocator
-            .decode_term(i)
-            .map(|(term, _)| term)
-            .ok_or_else(|| DecodeError::UndefinedCompressedTerm(value.clone()))
+    fn value_term<'a>(
+        &'a self,
+        active_context: &json_ld::Context,
+        value: &'a Self::Input,
+    ) -> Result<Cow<'a, str>, Self::Error> {
+        self.decode_vocab_term(active_context, value)
+            .map(Cow::Owned)
     }
 
     fn transform_id(&self, value: &Self::Input) -> Result<Self::Output, Self::Error> {
@@ -200,6 +194,7 @@ where
         value: &Self::Input,
     ) -> Result<Self::Output, Self::Error> {
         self.decode_vocab_term(active_context, value)
+            .map(|v| JsonValue::String(v.into()))
     }
 
     fn state_and_loader_mut(&mut self) -> (&mut TransformerState, &mut Self::Loader) {

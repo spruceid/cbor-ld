@@ -1,5 +1,5 @@
 use crate::{
-    transform::{DuplicateKey, ExpectedObject, MissingKeyTerm, UndefinedTerm},
+    transform::{DuplicateKey, ExpectedObject, InvalidTypeKind, MissingKeyTerm, UndefinedTerm},
     CborValue,
 };
 
@@ -38,11 +38,17 @@ pub enum DecodeError {
     #[error("invalid value")]
     InvalidValue,
 
+    #[error("invalid type kind")]
+    InvalidTypeKind,
+
     #[error("invalid id kind")]
     InvalidIdKind,
 
     #[error("invalid vocab value kind")]
     InvalidVocabTermKind,
+
+    #[error("invalid context value kind")]
+    InvalidContextTermKind,
 
     #[error("invalid JSON-LD context IRI reference: {0}")]
     InvalidContextIriRef(String),
@@ -72,5 +78,11 @@ impl From<UndefinedTerm> for DecodeError {
 impl From<ExpectedObject> for DecodeError {
     fn from(_value: ExpectedObject) -> Self {
         Self::ExpectedNodeObject
+    }
+}
+
+impl From<InvalidTypeKind> for DecodeError {
+    fn from(_value: InvalidTypeKind) -> Self {
+        Self::InvalidTypeKind
     }
 }
