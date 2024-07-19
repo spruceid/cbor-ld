@@ -17,9 +17,6 @@ pub use vocab::*;
 mod multibase;
 pub use multibase::*;
 
-mod cryptosuite;
-pub use cryptosuite::*;
-
 mod xsd_date;
 pub use xsd_date::*;
 
@@ -68,7 +65,6 @@ impl fmt::Debug for TypeCodecs {
     }
 }
 
-pub const CRYPTOSUITE_STRING: &Iri = iri!("https://w3id.org/security#cryptosuiteString");
 pub const MULTIBASE: &Iri = iri!("https://w3id.org/security#multibase");
 
 impl Default for TypeCodecs {
@@ -78,10 +74,6 @@ impl Default for TypeCodecs {
         result.insert(json_ld::Type::Id, IdCodec);
         result.insert(json_ld::Type::Vocab, VocabCodec);
         result.insert(json_ld::Type::Iri(MULTIBASE.to_owned()), MultibaseCodec);
-        result.insert(
-            json_ld::Type::Iri(CRYPTOSUITE_STRING.to_owned()),
-            CryptosuiteCodec::default(),
-        );
         result.insert(
             json_ld::Type::Iri(xsd_types::XSD_DATE.to_owned()),
             XsdDateCodec,

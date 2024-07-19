@@ -1,4 +1,5 @@
 use crate::{
+    tables::UnknownCompressionTable,
     transform::{DuplicateKey, ExpectedObject, InvalidTypeKind, MissingKeyTerm, UndefinedTerm},
     CborValue,
 };
@@ -11,8 +12,8 @@ pub enum DecodeError {
     #[error("not CBOR-LD")]
     NotCborLd,
 
-    #[error("unsupported compression mode {0}")]
-    UnsupportedCompressionMode(u8),
+    #[error("unknown compression table {0}")]
+    UnknownCompressionTable(u64),
 
     #[error("expected node object")]
     ExpectedNodeObject,
@@ -55,6 +56,12 @@ pub enum DecodeError {
 
     #[error("`{0}` codec error: {1}")]
     Codec(&'static str, String),
+}
+
+impl From<UnknownCompressionTable> for DecodeError {
+    fn from(value: UnknownCompressionTable) -> Self {
+        Self::UnknownCompressionTable(value.0)
+    }
 }
 
 impl From<DuplicateKey<CborValue>> for DecodeError {

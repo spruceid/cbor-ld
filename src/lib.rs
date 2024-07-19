@@ -94,8 +94,9 @@ pub use json_ld::syntax::Value as JsonValue;
 pub type CborObject = Vec<(CborValue, CborValue)>;
 pub type JsonObject = json_ld::syntax::Object;
 
+pub mod tables;
+pub use tables::{ContextTable, Tables, TypeTable};
 pub mod codecs;
-pub mod contexts;
 mod decode;
 mod encode;
 pub mod keywords;
@@ -109,49 +110,33 @@ pub mod transform;
 pub use codecs::Codecs;
 pub use id::*;
 
-/// Compression mode.
-#[derive(Debug, Default)]
-pub enum CompressionMode {
-    /// Uncompressed.
-    Uncompressed,
+/// First byte value of the 2-byte tag announcing CBOR-LD.
+pub const CBOR_LD_TAG_HIGH: u8 = 0x06;
 
-    /// Version 1 compression.
-    #[default]
-    Version1,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum CompressionMode {
+    Uncompressed,
+    Compressed(tables::RegistryEntry),
 }
 
 impl CompressionMode {
-    /// Reads the byte value of a compression mode.
-    pub fn from_byte(b: u8) -> Option<Self> {
-        match b {
-            0 => Some(Self::Uncompressed),
-            1 => Some(Self::Version1),
-            _ => None,
+    pub fn from_id(id: u64) -> Self {
+        match id {
+            0 => Self::Uncompressed,
+            n => Self::Compressed(tables::RegistryEntry::from_id(n)),
         }
     }
 
-    /// Returns the byte value of a compression mode.
-    ///
-    /// This byte value is included in the outer CBOR-LD tag value.
-    pub fn to_byte(&self) -> u8 {
+    pub fn id(&self) -> u64 {
         match self {
             Self::Uncompressed => 0,
-            Self::Version1 => 1,
+            Self::Compressed(t) => t.id(),
         }
     }
+}
 
-    /// Builds a CBOR-LD header tag from this compression mode.
-    pub fn to_tag(&self) -> u64 {
-        0x0500 | self.to_byte() as u64
-    }
-
-    /// Extracts the compression mode from a CBOR-LD header tag.
-    pub fn from_tag(tag: u64) -> Result<Self, DecodeError> {
-        if tag >> 8 != 0x05 {
-            return Err(DecodeError::NotCborLd);
-        }
-
-        let mode = (tag & 0xff) as u8;
-        Self::from_byte(mode).ok_or(DecodeError::UnsupportedCompressionMode(mode))
+impl Default for CompressionMode {
+    fn default() -> Self {
+        Self::Compressed(tables::RegistryEntry::Default)
     }
 }

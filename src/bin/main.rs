@@ -1,6 +1,6 @@
-use cbor_ld::{contexts::REGISTERED_CONTEXTS, DecodeOptions, EncodeOptions, IdMap};
+use cbor_ld::{DecodeOptions, EncodeOptions};
 use clap::Parser;
-use iref::{Iri, IriBuf, IriRefBuf};
+use iref::{Iri, IriBuf};
 use json_ld::{syntax::Parse, ChainLoader, FsLoader, Print, ReqwestLoader};
 use serde::Deserialize;
 use std::{
@@ -36,15 +36,6 @@ struct Configuration {
     #[serde(default, deserialize_with = "deserialize_mount_map")]
     mount: Vec<Mount>,
 
-    /// Add an application-specific context ID.
-    ///
-    /// The value must be of the form `iri-reference=id` where id is an
-    /// application-specific non-negative integer identifier for the JSON-LD
-    /// context identifier by the given IRI reference.
-    #[clap(short, long = "context", global = true)]
-    #[serde(default, deserialize_with = "deserialize_context_map")]
-    contexts: Vec<ContextDefinition>,
-
     /// Offline context loader.
     ///
     /// Enabling this option will disable remote context fetching.
@@ -56,7 +47,6 @@ struct Configuration {
 impl Configuration {
     fn extend(&mut self, other: Self) {
         self.mount.extend(other.mount);
-        self.contexts.extend(other.contexts);
         self.offline |= other.offline;
     }
 }
@@ -114,38 +104,6 @@ fn deserialize_mount_map<'de, D: serde::Deserializer<'de>>(
     })
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("invalid context ID definition")]
-struct InvalidContextDefinition;
-
-#[derive(Debug, Clone)]
-struct ContextDefinition {
-    id: u64,
-    iri_ref: IriRefBuf,
-}
-
-impl FromStr for ContextDefinition {
-    type Err = InvalidContextDefinition;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (iri_ref, id) = s.split_once('=').ok_or(InvalidContextDefinition)?;
-        Ok(Self {
-            iri_ref: IriRefBuf::new(iri_ref.to_owned()).map_err(|_| InvalidContextDefinition)?,
-            id: id.parse().map_err(|_| InvalidContextDefinition)?,
-        })
-    }
-}
-
-fn deserialize_context_map<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<ContextDefinition>, D::Error> {
-    BTreeMap::<IriRefBuf, u64>::deserialize(deserializer).map(|map| {
-        map.into_iter()
-            .map(|(iri_ref, id)| ContextDefinition { iri_ref, id })
-            .collect()
-    })
-}
-
 #[tokio::main]
 async fn main() -> ExitCode {
     let args = Args::parse();
@@ -192,19 +150,13 @@ async fn run(args: Args) -> Result<(), Error> {
         Loader::Online(ChainLoader::new(fs_loader, ReqwestLoader::new()))
     };
 
-    let mut context_map = IdMap::new_derived(Some(&REGISTERED_CONTEXTS));
-
-    for d in config.contexts {
-        context_map.insert(d.iri_ref.into_string(), d.id);
-    }
-
     match args.command {
         Command::Encode { input, hexadecimal } => {
             let input = read_input(input)?;
             let json = cbor_ld::JsonValue::parse_slice(&input)?.0;
 
             let options = EncodeOptions {
-                context_map,
+                // context_map,
                 ..Default::default()
             };
 
@@ -226,7 +178,7 @@ async fn run(args: Args) -> Result<(), Error> {
             };
 
             let options = DecodeOptions {
-                context_map,
+                // context_map,
                 ..Default::default()
             };
 

@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
 use crate::{
-    contexts::REGISTERED_CONTEXTS,
     transform::{TransformedValue, Transformer, TransformerState},
-    CborObject, CborValue, Codecs, CompressionMode, IdMap, JsonObject, JsonValue,
+    CborObject, CborValue, Codecs, CompressionMode, JsonObject, JsonValue, Tables,
+    CBOR_LD_TAG_HIGH,
 };
 
 mod error;
@@ -11,22 +11,15 @@ pub use error::*;
 use iref::{IriBuf, IriRef, IriRefBuf};
 
 /// Decoding options.
-#[derive(Debug)]
-pub struct DecodeOptions {
-    /// Map associating JSON-LD context URLs to CBOR-LD (integer) identifiers.
-    pub context_map: IdMap,
-
+#[derive(Debug, Default)]
+pub struct DecodeOptions<'a> {
+    // /// Map associating JSON-LD context URLs to CBOR-LD (integer) identifiers.
+    // pub context_map: IdMap,
     /// Datatype codecs.
     pub codecs: Codecs,
-}
 
-impl Default for DecodeOptions {
-    fn default() -> Self {
-        Self {
-            context_map: IdMap::new_derived(Some(&REGISTERED_CONTEXTS)),
-            codecs: Default::default(),
-        }
-    }
+    /// Tables.
+    pub default_tables: Cow<'a, Tables>,
 }
 
 /// Decodes a CBOR-LD document using the given JSON-LD context loader and the
@@ -43,18 +36,31 @@ pub async fn decode(
 pub async fn decode_with(
     cbor_ld_document: &CborValue,
     loader: impl json_ld::Loader,
-    options: DecodeOptions,
+    options: DecodeOptions<'_>,
 ) -> Result<JsonValue, DecodeError> {
     match cbor_ld_document {
-        CborValue::Tag(tag, value) => match CompressionMode::from_tag(*tag)? {
-            CompressionMode::Uncompressed => {
+        CborValue::Tag(tag, value) => {
+            if tag >> 8 != CBOR_LD_TAG_HIGH as u64 {
+                return Err(DecodeError::NotCborLd);
+            }
+
+            let varint_high = (tag & 0xff) as u8;
+
+            let compression_mode = if varint_high >= 128 {
                 todo!()
+            } else {
+                CompressionMode::from_id(varint_high as u64)
+            };
+
+            match compression_mode {
+                CompressionMode::Uncompressed => todo!("uncompressed"),
+                CompressionMode::Compressed(registry_entry) => {
+                    let tables = registry_entry.tables(options.default_tables)?;
+                    let mut decoder = Decoder::new(loader, options.codecs, tables);
+                    decoder.decode(value).await
+                }
             }
-            CompressionMode::Version1 => {
-                let mut decoder = Decoder::new(loader, options.context_map, options.codecs);
-                decoder.decode(value).await
-            }
-        },
+        }
         _ => Err(DecodeError::NotCborLd),
     }
 }
@@ -73,28 +79,36 @@ pub async fn decode_from_bytes(
 pub async fn decode_from_bytes_with(
     bytes: &[u8],
     loader: impl json_ld::Loader,
-    options: DecodeOptions,
+    options: DecodeOptions<'_>,
 ) -> Result<JsonValue, DecodeError> {
     let cbor_ld_document = ciborium::from_reader(bytes)?;
     decode_with(&cbor_ld_document, loader, options).await
 }
 
 /// CBOR-LD decoder.
-pub struct Decoder<L> {
+pub struct Decoder<'a, L> {
     loader: L,
-    state: TransformerState,
+    state: TransformerState<'a>,
 }
 
-impl<L> Decoder<L> {
-    pub fn new(loader: L, application_context_map: IdMap, codecs: Codecs) -> Self {
+impl<'a, L> Decoder<'a, L> {
+    pub fn new(
+        loader: L,
+        // application_context_map: IdMap,
+        codecs: Codecs,
+        tables: Cow<'a, Tables>,
+    ) -> Self {
         Self {
             loader,
-            state: TransformerState::new(application_context_map, codecs),
+            state: TransformerState::new(
+                // application_context_map,
+                codecs, tables,
+            ),
         }
     }
 }
 
-impl<L> Decoder<L>
+impl<'a, L> Decoder<'a, L>
 where
     L: json_ld::Loader,
 {
@@ -112,7 +126,7 @@ where
     }
 }
 
-impl<L> Transformer for Decoder<L>
+impl<'t, L> Transformer<'t> for Decoder<'t, L>
 where
     L: json_ld::Loader,
 {
@@ -134,13 +148,12 @@ where
                 let i = u64::try_from(*i)
                     .map_err(|_| DecodeError::UndefinedCompressedContext(value.clone()))?;
 
-                Ok(self
-                    .state
-                    .context_map
-                    .get_term(i)
-                    .ok_or_else(|| DecodeError::UndefinedCompressedContext(value.clone()))?
-                    .parse()
-                    .unwrap())
+                self.state
+                    .tables
+                    .context
+                    .get_iri_ref(i)
+                    .ok_or_else(|| DecodeError::UndefinedCompressedContext(value.clone()))
+                    .map(ToOwned::to_owned)
             }
             CborValue::Text(t) => {
                 IriRefBuf::new(t.clone()).map_err(|e| DecodeError::InvalidContextIriRef(e.0))
@@ -197,7 +210,7 @@ where
             .map(|v| JsonValue::String(v.into()))
     }
 
-    fn state_and_loader_mut(&mut self) -> (&mut TransformerState, &mut Self::Loader) {
+    fn state_and_loader_mut(&mut self) -> (&mut TransformerState<'t>, &mut Self::Loader) {
         (&mut self.state, &mut self.loader)
     }
 
@@ -211,11 +224,14 @@ where
             Ok(None)
         } else {
             match type_ {
-                Some(type_) => match self.state.codecs.type_.get(type_) {
-                    Some(codec) => codec
-                        .decode(&self.state, active_context, value)
-                        .map(|ty| Some(JsonValue::String(ty.into()))),
-                    None => Ok(None),
+                Some(type_) => match self.state.tables.types.get(type_) {
+                    Some(t) => t.decode(value).map(Some),
+                    None => match self.state.codecs.type_.get(type_) {
+                        Some(codec) => codec
+                            .decode(&self.state, active_context, value)
+                            .map(|ty| Some(JsonValue::String(ty.into()))),
+                        None => Ok(None),
+                    },
                 },
                 None => Ok(None),
             }

@@ -3,14 +3,17 @@ use core::fmt;
 use iref::{Iri, IriBuf};
 use std::collections::HashMap;
 
-mod url;
-pub use url::*;
+mod http;
+pub use http::*;
 
 mod urn;
 pub use urn::*;
 
 mod did;
 pub use did::*;
+
+mod data;
+pub use data::*;
 
 pub trait IriCodec {
     fn encode(&self, suffix: &str) -> Result<Vec<CborValue>, EncodeError>;
@@ -117,9 +120,10 @@ impl Default for IriCodecs {
     fn default() -> Self {
         let mut result = Self::new();
 
-        result.insert("http".to_owned(), 1, UrlCodec);
-        result.insert("https".to_owned(), 2, UrlCodec);
+        result.insert("http".to_owned(), 1, HttpUrlCodec);
+        result.insert("https".to_owned(), 2, HttpUrlCodec);
         result.insert("urn:uuid".to_owned(), 3, UrnUuidCodec);
+        result.insert("data".to_owned(), 4, DataUrlCodec);
         result.insert("did:v1:nym".to_owned(), 1024, Base58DidMethodCodec);
         result.insert("did:key".to_owned(), 1025, Base58DidMethodCodec);
 

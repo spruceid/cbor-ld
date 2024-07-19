@@ -1,9 +1,9 @@
 use super::IriCodec;
 use crate::{CborValue, DecodeError, EncodeError};
 
-pub struct UrlCodec;
+pub struct HttpUrlCodec;
 
-impl IriCodec for UrlCodec {
+impl IriCodec for HttpUrlCodec {
     fn encode(&self, suffix: &str) -> Result<Vec<CborValue>, EncodeError> {
         // FIXME: presumes authority.
         let content = &suffix[2..];

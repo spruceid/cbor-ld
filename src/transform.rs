@@ -8,8 +8,8 @@ use std::borrow::Cow;
 
 use crate::{
     keywords::{FIRST_CUSTOM_TERM_ID, KEYWORDS_MAP},
-    CborObject, CborValue, Codecs, DecodeError, EncodeError, IdAllocator, IdMap, JsonObject,
-    JsonValue,
+    CborObject, CborValue, Codecs, DecodeError, EncodeError, IdAllocator, JsonObject, JsonValue,
+    Tables,
 };
 
 pub trait TransformedValue: Sized {
@@ -164,7 +164,7 @@ pub struct ExpectedObject;
 
 pub struct InvalidTypeKind;
 
-pub trait Transformer {
+pub trait Transformer<'t> {
     type Input: TransformedValue<Object = Self::InputObject>;
     type Output: TransformedValue<Object = Self::OutputObject>;
 
@@ -222,7 +222,7 @@ pub trait Transformer {
         value: &Self::Input,
     ) -> Result<Self::Output, Self::Error>;
 
-    fn state_and_loader_mut(&mut self) -> (&mut TransformerState, &mut Self::Loader);
+    fn state_and_loader_mut(&mut self) -> (&mut TransformerState<'t>, &mut Self::Loader);
 
     #[allow(async_fn_in_trait)]
     async fn process_global_context<'c>(
@@ -517,18 +517,24 @@ fn is_alias_with_def(key: &str, def: Option<TermDefinitionRef>, keyword: Keyword
         })
 }
 
-pub struct TransformerState {
-    pub context_map: IdMap,
+pub struct TransformerState<'a> {
+    // pub context_map: IdMap,
     pub allocator: IdAllocator,
     pub codecs: Codecs,
+    pub tables: Cow<'a, Tables>,
 }
 
-impl TransformerState {
-    pub fn new(context_map: IdMap, codecs: Codecs) -> Self {
+impl<'a> TransformerState<'a> {
+    pub fn new(
+        // context_map: IdMap,
+        codecs: Codecs,
+        tables: Cow<'a, Tables>,
+    ) -> Self {
         Self {
-            context_map,
+            // context_map,
             allocator: IdAllocator::new(Some(&KEYWORDS_MAP), FIRST_CUSTOM_TERM_ID),
             codecs,
+            tables,
         }
     }
 

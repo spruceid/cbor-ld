@@ -1,35 +1,27 @@
 use std::borrow::Cow;
 
 use crate::{
-    contexts::REGISTERED_CONTEXTS,
     transform::{Transformer, TransformerState},
-    CborObject, CborValue, Codecs, CompressionMode, IdMap, JsonObject, JsonValue,
+    CborObject, CborValue, Codecs, CompressionMode, JsonObject, JsonValue, Tables,
+    CBOR_LD_TAG_HIGH,
 };
 use iref::{Iri, IriBuf, IriRef, IriRefBuf};
 mod error;
 pub use error::*;
 
 /// Encoding options.
-#[derive(Debug)]
-pub struct EncodeOptions {
+#[derive(Debug, Default)]
+pub struct EncodeOptions<'a> {
     /// Compression mode.
     pub compression_mode: CompressionMode,
 
-    /// Map associating JSON-LD context URLs to CBOR-LD (integer) identifiers.
-    pub context_map: IdMap,
+    /// Default compression tables.
+    pub default_table: Cow<'a, Tables>,
 
+    // /// Map associating JSON-LD context URLs to CBOR-LD (integer) identifiers.
+    // pub context_map: IdMap,
     /// Datatype codecs.
     pub codecs: Codecs,
-}
-
-impl Default for EncodeOptions {
-    fn default() -> Self {
-        Self {
-            compression_mode: CompressionMode::Version1,
-            context_map: IdMap::new_derived(Some(&REGISTERED_CONTEXTS)),
-            codecs: Default::default(),
-        }
-    }
 }
 
 /// Encodes a JSON-LD document into CBOR-LD using the given JSON-LD context
@@ -46,23 +38,29 @@ pub async fn encode(
 pub async fn encode_with(
     json_ld_document: &json_ld::syntax::Value,
     loader: impl json_ld::Loader,
-    options: EncodeOptions,
+    options: EncodeOptions<'_>,
 ) -> Result<CborValue, EncodeError> {
     let cbor_value = match options.compression_mode {
         CompressionMode::Uncompressed => {
             todo!()
         }
-        CompressionMode::Version1 => {
-            let mut compressor = Encoder::new(loader, options.context_map, options.codecs);
+        CompressionMode::Compressed(t) => {
+            let mut compressor =
+                Encoder::new(loader, options.codecs, t.tables(options.default_table)?);
 
             compressor.encode(json_ld_document).await
         }
     }?;
 
-    Ok(CborValue::Tag(
-        options.compression_mode.to_tag(),
-        Box::new(cbor_value),
-    ))
+    let id = options.compression_mode.id();
+
+    if id < 128 {
+        let tag = (CBOR_LD_TAG_HIGH as u64) << 8 | id;
+
+        Ok(CborValue::Tag(tag, Box::new(cbor_value)))
+    } else {
+        todo!()
+    }
 }
 
 /// Encodes a JSON-LD document into CBOR-LD bytes using the given JSON-LD
@@ -79,7 +77,7 @@ pub async fn encode_to_bytes(
 pub async fn encode_to_bytes_with(
     json_ld_document: &json_ld::syntax::Value,
     loader: impl json_ld::Loader,
-    options: EncodeOptions,
+    options: EncodeOptions<'_>,
 ) -> Result<Vec<u8>, EncodeError> {
     encode_with(json_ld_document, loader, options)
         .await
@@ -92,21 +90,21 @@ pub fn cbor_into_bytes(cbor: CborValue) -> Vec<u8> {
     bytes
 }
 
-pub struct Encoder<L> {
+pub struct Encoder<'a, L> {
     loader: L,
-    state: TransformerState,
+    state: TransformerState<'a>,
 }
 
-impl<L> Encoder<L> {
-    pub fn new(loader: L, application_context_map: IdMap, codecs: Codecs) -> Self {
+impl<'a, L> Encoder<'a, L> {
+    pub fn new(loader: L, codecs: Codecs, tables: Cow<'a, Tables>) -> Self {
         Self {
             loader,
-            state: TransformerState::new(application_context_map, codecs),
+            state: TransformerState::new(codecs, tables),
         }
     }
 }
 
-impl<L> Encoder<L>
+impl<'a, L> Encoder<'a, L>
 where
     L: json_ld::Loader,
 {
@@ -125,7 +123,7 @@ where
     }
 }
 
-impl<L> Transformer for Encoder<L>
+impl<'a, L> Transformer<'a> for Encoder<'a, L>
 where
     L: json_ld::Loader,
 {
@@ -150,7 +148,7 @@ where
     }
 
     fn context_id(&self, _value: &Self::Input, iri_ref: &IriRef) -> Self::Output {
-        match self.state.context_map.get_id(iri_ref) {
+        match self.state.tables.context.get_id(iri_ref) {
             Some(id) => CborValue::Integer(id.into()),
             None => CborValue::Text(iri_ref.as_str().to_owned()),
         }
@@ -170,19 +168,19 @@ where
         self.term_key(term, false)
     }
 
-    fn key_term<'a>(
-        &'a self,
-        key: &'a Self::InputKey,
+    fn key_term<'t>(
+        &'t self,
+        key: &'t Self::InputKey,
         value: &Self::Input,
-    ) -> Result<Option<(&'a str, bool)>, Self::Error> {
+    ) -> Result<Option<(&'t str, bool)>, Self::Error> {
         Ok(Some((key.as_str(), value.is_array())))
     }
 
-    fn value_term<'a>(
-        &'a self,
+    fn value_term<'t>(
+        &'t self,
         _active_context: &json_ld::Context,
-        value: &'a Self::Input,
-    ) -> Result<Cow<'a, str>, Self::Error> {
+        value: &'t Self::Input,
+    ) -> Result<Cow<'t, str>, Self::Error> {
         value
             .as_str()
             .map(Cow::Borrowed)
@@ -203,7 +201,7 @@ where
         self.encode_vocab_term(active_context, value)
     }
 
-    fn state_and_loader_mut(&mut self) -> (&mut TransformerState, &mut Self::Loader) {
+    fn state_and_loader_mut(&mut self) -> (&mut TransformerState<'a>, &mut Self::Loader) {
         (&mut self.state, &mut self.loader)
     }
 
@@ -215,9 +213,12 @@ where
     ) -> Result<Option<Self::Output>, Self::Error> {
         match value {
             JsonValue::String(value) => match type_ {
-                Some(type_) => match self.state.codecs.type_.get(type_) {
-                    Some(codec) => codec.encode(&self.state, active_context, value).map(Some),
-                    None => Ok(None),
+                Some(type_) => match self.state.tables.types.get(type_) {
+                    Some(table) => Ok(Some(table.encode(value))),
+                    None => match self.state.codecs.type_.get(type_) {
+                        Some(codec) => codec.encode(&self.state, active_context, value).map(Some),
+                        None => Ok(None),
+                    },
                 },
                 None => Ok(None),
             },

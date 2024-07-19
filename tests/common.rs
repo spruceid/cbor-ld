@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use cbor_ld::{decode_from_bytes, encode_to_bytes, JsonValue};
+use cbor_ld::{
+    decode_from_bytes, encode_to_bytes, encode_to_bytes_with, CompressionMode, EncodeOptions,
+    JsonValue,
+};
 use json_ld::{FsLoader, Print};
 use json_syntax::BorrowUnordered;
 use static_iref::iri;
@@ -21,6 +24,10 @@ pub fn create_context_loader() -> FsLoader {
         "tests/contexts/credentials",
     );
     loader.mount(
+        iri!("https://www.w3.org/ns/credentials").to_owned(),
+        "tests/contexts/credentials",
+    );
+    loader.mount(
         iri!("https://w3id.org/age").to_owned(),
         "tests/contexts/age",
     );
@@ -32,6 +39,14 @@ pub fn create_context_loader() -> FsLoader {
         iri!("https://w3id.org/citizenship").to_owned(),
         "tests/contexts/citizenship",
     );
+    loader.mount(
+        iri!("https://w3id.org/vc-barcodes").to_owned(),
+        "tests/contexts/vc-barcodes",
+    );
+    loader.mount(
+        iri!("https://w3id.org/utopia").to_owned(),
+        "tests/contexts/utopia",
+    );
 
     loader
 }
@@ -40,6 +55,29 @@ pub async fn compression_test(input: &str, expected_hex: &str) {
     let json = cbor_ld::JsonValue::from_str(input).unwrap();
     let expected_bytes = hex::decode(expected_hex).unwrap();
     let bytes = encode_to_bytes(&json, create_context_loader())
+        .await
+        .unwrap();
+
+    eprint!("output   = ");
+    diff(&bytes, &expected_bytes);
+    eprint!("expected = ");
+    diff(&expected_bytes, &bytes);
+
+    assert_eq!(bytes, expected_bytes)
+}
+
+pub async fn compression_test_with(
+    input: &str,
+    expected_hex: &str,
+    compression_mode: CompressionMode,
+) {
+    let json = cbor_ld::JsonValue::from_str(input).unwrap();
+    let expected_bytes = hex::decode(expected_hex).unwrap();
+    let options = EncodeOptions {
+        compression_mode,
+        ..Default::default()
+    };
+    let bytes = encode_to_bytes_with(&json, create_context_loader(), options)
         .await
         .unwrap();
 
@@ -87,8 +125,8 @@ pub fn diff(value: &[u8], expected: &[u8]) {
                 Self::None => (),
                 Self::Eq => eprint!("{}", "".green().linger()),
                 Self::Neq => eprint!("{}", "".red().linger()),
-                Self::Missing => eprint!("{}", "".white().strike().on_red()),
-                Self::Added => eprintln!("{}", "".white().on_red()),
+                Self::Missing => eprint!("{}", "".white().on_red().strike().linger()),
+                Self::Added => eprint!("{}", "".white().on_green().linger()),
             }
         }
 
