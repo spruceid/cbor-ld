@@ -15,7 +15,7 @@ pub use did::*;
 mod data;
 pub use data::*;
 
-pub trait IriCodec {
+pub trait IriCodec: Send + Sync {
     fn encode(&self, suffix: &str) -> Result<Vec<CborValue>, EncodeError>;
 
     fn decode(&self, array: &[CborValue]) -> Result<String, DecodeError>;

@@ -11,12 +11,12 @@ pub use error::*;
 
 /// Encoding options.
 #[derive(Debug, Default)]
-pub struct EncodeOptions<'a> {
+pub struct EncodeOptions {
     /// Compression mode.
     pub compression_mode: CompressionMode,
 
     /// Default compression tables.
-    pub default_table: Cow<'a, Tables>,
+    pub default_table: Cow<'static, Tables>,
 
     // /// Map associating JSON-LD context URLs to CBOR-LD (integer) identifiers.
     // pub context_map: IdMap,
@@ -38,7 +38,7 @@ pub async fn encode(
 pub async fn encode_with(
     json_ld_document: &json_ld::syntax::Value,
     loader: impl json_ld::Loader,
-    options: EncodeOptions<'_>,
+    options: EncodeOptions,
 ) -> Result<CborValue, EncodeError> {
     let cbor_value = match options.compression_mode {
         CompressionMode::Uncompressed => {
@@ -77,7 +77,7 @@ pub async fn encode_to_bytes(
 pub async fn encode_to_bytes_with(
     json_ld_document: &json_ld::syntax::Value,
     loader: impl json_ld::Loader,
-    options: EncodeOptions<'_>,
+    options: EncodeOptions,
 ) -> Result<Vec<u8>, EncodeError> {
     encode_with(json_ld_document, loader, options)
         .await
@@ -90,13 +90,13 @@ pub fn cbor_into_bytes(cbor: CborValue) -> Vec<u8> {
     bytes
 }
 
-pub struct Encoder<'a, L> {
+pub struct Encoder<L> {
     loader: L,
-    state: TransformerState<'a>,
+    state: TransformerState,
 }
 
-impl<'a, L> Encoder<'a, L> {
-    pub fn new(loader: L, codecs: Codecs, tables: Cow<'a, Tables>) -> Self {
+impl<L> Encoder<L> {
+    pub fn new(loader: L, codecs: Codecs, tables: Cow<'static, Tables>) -> Self {
         Self {
             loader,
             state: TransformerState::new(codecs, tables),
@@ -104,7 +104,7 @@ impl<'a, L> Encoder<'a, L> {
     }
 }
 
-impl<'a, L> Encoder<'a, L>
+impl<L> Encoder<L>
 where
     L: json_ld::Loader,
 {
@@ -123,7 +123,7 @@ where
     }
 }
 
-impl<'a, L> Transformer<'a> for Encoder<'a, L>
+impl<L> Transformer for Encoder<L>
 where
     L: json_ld::Loader,
 {
@@ -201,7 +201,7 @@ where
         self.encode_vocab_term(active_context, value)
     }
 
-    fn state_and_loader_mut(&mut self) -> (&mut TransformerState<'a>, &mut Self::Loader) {
+    fn state_and_loader_mut(&mut self) -> (&mut TransformerState, &mut Self::Loader) {
         (&mut self.state, &mut self.loader)
     }
 
@@ -255,5 +255,27 @@ where
                 Box::pin(self.transform_node(active_context, object)).await?,
             )),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::Future;
+
+    use super::{encode, encode_to_bytes};
+
+    fn assert_send(_: impl Send + Future) {}
+
+    #[test]
+    fn encode_is_send() {
+        assert_send(encode(&json_ld::syntax::Value::Null, json_ld::NoLoader))
+    }
+
+    #[test]
+    fn encode_to_bytes_is_send() {
+        assert_send(encode_to_bytes(
+            &json_ld::syntax::Value::Null,
+            json_ld::NoLoader,
+        ))
     }
 }

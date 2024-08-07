@@ -12,14 +12,14 @@ use iref::{IriBuf, IriRef, IriRefBuf};
 
 /// Decoding options.
 #[derive(Debug, Default)]
-pub struct DecodeOptions<'a> {
+pub struct DecodeOptions {
     // /// Map associating JSON-LD context URLs to CBOR-LD (integer) identifiers.
     // pub context_map: IdMap,
     /// Datatype codecs.
     pub codecs: Codecs,
 
     /// Tables.
-    pub default_tables: Cow<'a, Tables>,
+    pub default_tables: Cow<'static, Tables>,
 }
 
 /// Decodes a CBOR-LD document using the given JSON-LD context loader and the
@@ -36,7 +36,7 @@ pub async fn decode(
 pub async fn decode_with(
     cbor_ld_document: &CborValue,
     loader: impl json_ld::Loader,
-    options: DecodeOptions<'_>,
+    options: DecodeOptions,
 ) -> Result<JsonValue, DecodeError> {
     match cbor_ld_document {
         CborValue::Tag(tag, value) => {
@@ -79,24 +79,24 @@ pub async fn decode_from_bytes(
 pub async fn decode_from_bytes_with(
     bytes: &[u8],
     loader: impl json_ld::Loader,
-    options: DecodeOptions<'_>,
+    options: DecodeOptions,
 ) -> Result<JsonValue, DecodeError> {
     let cbor_ld_document = ciborium::from_reader(bytes)?;
     decode_with(&cbor_ld_document, loader, options).await
 }
 
 /// CBOR-LD decoder.
-pub struct Decoder<'a, L> {
+pub struct Decoder<L> {
     loader: L,
-    state: TransformerState<'a>,
+    state: TransformerState,
 }
 
-impl<'a, L> Decoder<'a, L> {
+impl<L> Decoder<L> {
     pub fn new(
         loader: L,
         // application_context_map: IdMap,
         codecs: Codecs,
-        tables: Cow<'a, Tables>,
+        tables: Cow<'static, Tables>,
     ) -> Self {
         Self {
             loader,
@@ -108,7 +108,7 @@ impl<'a, L> Decoder<'a, L> {
     }
 }
 
-impl<'a, L> Decoder<'a, L>
+impl<L> Decoder<L>
 where
     L: json_ld::Loader,
 {
@@ -126,7 +126,7 @@ where
     }
 }
 
-impl<'t, L> Transformer<'t> for Decoder<'t, L>
+impl<L> Transformer for Decoder<L>
 where
     L: json_ld::Loader,
 {
@@ -210,7 +210,7 @@ where
             .map(|v| JsonValue::String(v.into()))
     }
 
-    fn state_and_loader_mut(&mut self) -> (&mut TransformerState<'t>, &mut Self::Loader) {
+    fn state_and_loader_mut(&mut self) -> (&mut TransformerState, &mut Self::Loader) {
         (&mut self.state, &mut self.loader)
     }
 
@@ -268,5 +268,24 @@ where
             )),
             _ => Err(DecodeError::InvalidValue),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::Future;
+
+    use super::{decode, decode_from_bytes};
+
+    fn assert_send(_: impl Send + Future) {}
+
+    #[test]
+    fn decode_is_send() {
+        assert_send(decode(&ciborium::Value::Null, json_ld::NoLoader))
+    }
+
+    #[test]
+    fn decode_from_bytes_is_send() {
+        assert_send(decode_from_bytes(b"", json_ld::NoLoader))
     }
 }

@@ -23,7 +23,7 @@ pub use xsd_date::*;
 mod xsd_date_time;
 pub use xsd_date_time::*;
 
-pub trait TypeCodec {
+pub trait TypeCodec: Send + Sync {
     fn encode(
         &self,
         state: &TransformerState,
