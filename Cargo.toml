@@ -2,6 +2,11 @@
 name = "cbor-ld"
 version = "0.2.0"
 edition = "2021"
+authors = ["Spruce Systems, Inc."]
+license = "MIT OR Apache-2.0"
+description = "CBOR-LD"
+repository = "https://github.com/spruceid/cbor-ld/"
+documentation = "https://docs.rs/cbor-ld/"
 
 [[bin]]
 name = "cbor-ld"
