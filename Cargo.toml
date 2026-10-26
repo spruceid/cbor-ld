@@ -14,7 +14,7 @@ path = "src/bin/main.rs"
 required-features = ["bin"]
 
 [features]
-default = ["bin"]
+default = []
 bin = ["clap", "env_logger", "json-ld/reqwest", "iref/serde", "hex"]
 
 [dependencies]
