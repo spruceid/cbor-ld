@@ -20,7 +20,7 @@ impl IdAllocator {
     }
 
     pub fn decode_term(&self, id: u64) -> Option<(&str, bool)> {
-        let singular = if id % 2 == 0 { id } else { id - 1 };
+        let singular = if id.is_multiple_of(2) { id } else { id - 1 };
 
         self.term_to_id
             .get_term(singular)
