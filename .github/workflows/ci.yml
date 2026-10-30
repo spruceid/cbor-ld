@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ['**']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Build
+        run: cargo build
+      - name: Test
+        run: cargo test --all-features
+      - name: Fmt
+        run: cargo fmt -- --check
+      - name: Clippy
+        run: cargo clippy --all-features
+
+      - name: Unused dependencies
+        run: cargo machete
+
+      - name: Check dependencies licences are compatible
+        run: cargo deny check licenses
