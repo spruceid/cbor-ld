@@ -13,7 +13,7 @@ pub trait DisplayDiagnostic {
     fn fmt_diagnostic(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
-impl<'a, T: DisplayDiagnostic> DisplayDiagnostic for &'a T {
+impl<T: DisplayDiagnostic> DisplayDiagnostic for &T {
     fn fmt_diagnostic(&self, f: &mut fmt::Formatter) -> fmt::Result {
         T::fmt_diagnostic(*self, f)
     }
